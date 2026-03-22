@@ -1,0 +1,1 @@
+load_current_level
