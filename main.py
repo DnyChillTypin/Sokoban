@@ -9,7 +9,7 @@ class Game:
     def __init__(self):
         pygame.init()
 
-        self.screen = pygame.display.set_mode((default_window_width, default_window_height))
+        self.screen = pygame.display.set_mode((window_width, window_height))
         pygame.display.set_caption('Sokoban AI')
         
         self.clock = pygame.time.Clock()
@@ -21,16 +21,16 @@ class Game:
     def load_current_level(self):
         self.level = Level(self.current_level_num)
         
-        new_width = self.level.columns * scaled_tile
-        new_height = self.level.rows * scaled_tile
-        self.screen = pygame.display.set_mode((new_width, new_height))
-        
         self.player = Player(
             self.level.player_start_x,
             self.level.player_start_y,
             self.level.images['player']
         )
 
+        self.map_width = self.level.columns * scaled_tile
+        self.map_height = self.level.rows * scaled_tile
+
+        self.map_surface = pygame.Surface((self.map_width, self.map_height))
 
     def quit_game(self):
         pygame.quit()
@@ -79,9 +79,23 @@ class Game:
                 self.quit_game()
 
     def draw(self):
-        self.screen.fill(bg_color)
+        menu_surface = pygame.Surface((menu_width, window_height))
+        menu_surface.fill(menu_bg_color)
+
+        game_surface = pygame.Surface((game_width, window_height))
+        game_surface.fill(bg_color)
+
+        self.map_surface.fill(bg_color)
+        self.level.draw(self.map_surface)
         self.level.draw(self.screen)
-        self.player.draw(self.screen)
+        self.player.draw(self.map_surface)
+
+        map_rect = self.map_surface.get_rect(center=game_surface.get_rect().center)
+        game_surface.blit(self.map_surface, map_rect)
+
+        self.screen.blit(menu_surface, (0, 0))
+        self.screen.blit(game_surface, (menu_width, 0))
+        
         pygame.display.update()
 
 if __name__ == '__main__':

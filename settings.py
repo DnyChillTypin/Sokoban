@@ -2,11 +2,16 @@ tile_size = 16
 scale = 5
 scaled_tile = tile_size * scale
 
-default_window_width = 1024
-default_window_height = 768
+window_width = 1600
+window_height = 900
 fps = 60
 
-bg_color = (255, 255, 255)
+menu_width = int(window_width * 0.2)
+game_width = window_width - menu_width
+
+menu_bg_color = ("#21c9eb")
+
+bg_color = ('#d834eb')
 
 tile_mapping = {
     '0': 'ground',
@@ -22,5 +27,6 @@ textures = {
     'box': 'assets/graphics/interactables/BoxYallow.png',
     'target': 'assets/graphics/interactables/ButtonUpYallow.png',
     'box_on_target': 'assets/graphics/interactables/BoxGreen.png', 
-    'player': 'assets/graphics/ScotterBlue.png'
+    'player': 'assets/graphics/ScotterBlue.png',
+    'bg_image_path': 'assets/graphics/WallpaperScifi.png'
 }
