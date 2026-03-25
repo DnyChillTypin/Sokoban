@@ -29,3 +29,8 @@ textures = {
     'player': 'assets/graphics/ScotterBlue.png',
     'bg_image_path': 'assets/graphics/WallpaperScifi.png'
 }
+
+'''
+nodes generated
+nodes visited 
+'''
