@@ -1,10 +1,12 @@
 import pygame
 import sys
 import os
+import time
 from settings import *
 from level import Level
 from player import Player
-from GameMenu import GameMenu # <-- NEW: Import your separated menu!
+from gameMenu import GameMenu # <-- FIX: Updated the filename import
+from solver import SokobanSolver
 
 class Game:
     def __init__(self):
@@ -18,8 +20,16 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # --- NEW: Initialize the separated Menu Object ---
         self.menu = GameMenu()
+        
+        self.solver_results = {}
+        self.is_playing_back = False
+        self.playback_path = []
+        self.playback_timer = 0
+        self.playback_speed = 333 
+        
+        # --- NEW: Holds the exact board state from when you press "Run" ---
+        self.saved_solver_state = None 
 
         self.current_level_num = 0
         self.moves_count = 0
@@ -41,7 +51,34 @@ class Game:
         
         self.history = []
         self.moves_count = 0
+        self.is_playing_back = False 
+        self.saved_solver_state = None
+        
+        # --- FIX: Clear the old Watch buttons when a new level loads ---
+        self.menu.reset_ai_menu() 
         self.menu.update_moves(self.moves_count, self.current_level_num)
+
+    def handle_movement_input(self, key):
+        directions = {
+            pygame.K_UP: (0, -1), pygame.K_w: (0, -1),
+            pygame.K_DOWN: (0, 1), pygame.K_s: (0, 1),
+            pygame.K_LEFT: (-1, 0), pygame.K_a: (-1, 0),
+            pygame.K_RIGHT: (1, 0), pygame.K_d: (1, 0)
+        }
+
+        if key in directions:
+            dx, dy = directions[key]
+            old_x, old_y = self.player.x, self.player.y
+            old_boxes = [list(box) for box in self.level.boxes] 
+            
+            self.player.move(dx, dy, self.level)
+            
+            if self.player.x != old_x or self.player.y != old_y:
+                self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
+                self.moves_count += 1
+                self.menu.update_moves(self.moves_count, self.current_level_num)
+            return True 
+        return False
 
     def quit_game(self):
         pygame.quit()
@@ -59,54 +96,98 @@ class Game:
             if event.type == pygame.QUIT:
                 self.quit_game()
 
-            # --- Pass events to the menu, and see if it returned a command ---
             action = self.menu.process_events(event)
+            
             if action == "RUN_SOLVER":
-                # We can access the menu's selected algorithms variable directly!
-                print(f"Executing Solver Engine with: {', '.join(self.menu.selected_algos)}")
+                print(f"\nExecuting Solver Engine...")
+                
+                # --- NEW: Update UI text and FORCE Pygame to draw it immediately ---
+                self.menu.run_solver_btn.set_text("Running...")
+                self.menu.update(0.016) # Feed it a tiny fake time delta
+                self.draw()             # Force the screen to stamp the update
+                
+                self.saved_solver_state = {
+                    'player': (self.player.x, self.player.y),
+                    'boxes': [list(box) for box in self.level.boxes]
+                }
+                
+                solver = SokobanSolver(self.level)
+                current_state = solver.get_initial_state(self.player, self.level)
+                self.solver_results.clear()
+                
+                # --- NEW: Time each algorithm individually ---
+                for algo in self.menu.selected_algos:
+                    start_time = time.time()
+                    
+                    if algo == 'BFS': 
+                        self.solver_results['BFS'] = solver.solve_bfs(current_state)
+                    elif algo == 'DFS': 
+                        self.solver_results['DFS'] = solver.solve_dfs(current_state)
+                    elif algo == 'A*': 
+                        self.solver_results['A*'] = solver.solve_astar(current_state)
+                        
+                    elapsed_time = time.time() - start_time
+                    print(f"-> {algo} finished in {elapsed_time:.4f} seconds!")
+                
+                self.menu.show_results(self.solver_results)
+
+            if action and action.startswith("PLAYBACK_"):
+                algo = action.split("_")[1]
+                
+                # --- FIX: If it deadlocked, clicking the button does nothing ---
+                if self.solver_results[algo] is None:
+                    continue
+                
+                # --- FIX: Snap the board back to the exact moment you pressed Run ---
+                if self.saved_solver_state:
+                    self.player.x, self.player.y = self.saved_solver_state['player']
+                    self.level.boxes = [list(box) for box in self.saved_solver_state['boxes']]
+                
+                self.playback_path = self.solver_results[algo].copy()
+                self.is_playing_back = True
+                self.playback_timer = pygame.time.get_ticks()
+                if self.menu.expanded: self.menu.toggle_expansion() 
 
             if event.type == pygame.KEYDOWN:
+                if self.is_playing_back:
+                    self.is_playing_back = False
+                    print("Playback Interrupted!")
+
+                if self.handle_movement_input(event.key):
+                    continue
+
                 if event.key == pygame.K_ESCAPE: self.quit_game()
                 elif event.key == pygame.K_r: self.load_current_level()
-                
                 elif event.key == pygame.K_n:
                     next_level_path = f'levels/{self.current_level_num + 1}.txt'
                     if os.path.exists(next_level_path):
                         self.current_level_num += 1
                         self.load_current_level()
-                
                 elif event.key == pygame.K_p:
                     if self.current_level_num > 0:
                         self.current_level_num -= 1
                         self.load_current_level()
-                
                 elif event.key == pygame.K_z:
                     if len(self.history) > 0:
                         last_state = self.history.pop()
                         self.player.x, self.player.y = last_state['player']
                         self.level.boxes = [list(box) for box in last_state['boxes']]
-                
-                # MOVEMENT (Arrow Keys + WASD)
-                elif event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT, 
-                                   pygame.K_w, pygame.K_s, pygame.K_a, pygame.K_d]:
-                    old_x, old_y = self.player.x, self.player.y
-                    old_boxes = [list(box) for box in self.level.boxes] 
-
-                    if event.key in [pygame.K_UP, pygame.K_w]: self.player.move(0, -1, self.level)
-                    elif event.key in [pygame.K_DOWN, pygame.K_s]: self.player.move(0, 1, self.level)
-                    elif event.key in [pygame.K_LEFT, pygame.K_a]: self.player.move(-1, 0, self.level)
-                    elif event.key in [pygame.K_RIGHT, pygame.K_d]: self.player.move(1, 0, self.level)
-
-                    # Update history and menu move counter if the player moved
-                    if self.player.x != old_x or self.player.y != old_y:
-                        self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
-                        self.moves_count += 1
-                        self.menu.update_moves(self.moves_count, self.current_level_num)
 
     def update(self, time_delta):
         self.menu.update(time_delta)
         
-        if self.level.is_completed():
+        if self.is_playing_back:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.playback_timer > self.playback_speed:
+                if self.playback_path:
+                    move = self.playback_path.pop(0)
+                    move_map = {'U': pygame.K_UP, 'D': pygame.K_DOWN, 'L': pygame.K_LEFT, 'R': pygame.K_RIGHT}
+                    self.handle_movement_input(move_map[move])
+                    self.playback_timer = current_time
+                else:
+                    self.is_playing_back = False 
+
+        if self.level.is_completed() and not self.is_playing_back:
             print(f'Level {self.current_level_num} cleared')
             self.current_level_num += 1
 
@@ -118,19 +199,15 @@ class Game:
                 self.quit_game()
 
     def draw(self):
-        # 1. Background
         self.screen.fill((0, 0, 0))
         self.screen.blit(self.bg_image, self.bg_rect)
         
-        # 2. Level and Player
         self.map_surface.fill((0, 0, 0, 0))
         self.level.draw(self.map_surface)
         self.player.draw(self.map_surface)
         self.screen.blit(self.map_surface, self.map_rect)
 
-        # 3. Draw the newly separated menu on top of everything!
         self.menu.draw(self.screen)
-        
         pygame.display.update()
 
 if __name__ == '__main__':

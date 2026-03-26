@@ -5,13 +5,12 @@ from settings import *
 class GameMenu:
     def __init__(self):
         self.manager = pygame_gui.UIManager((window_width, window_height))
-        
-        # Menu State
         self.expanded = False
         self.ai_dropdown_open = False
         self.selected_algos = {'A*'}
         
-        # Pre-calculate the dimming surface for optimization
+        self.playback_btns = {} 
+        
         self.dim_surf = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.dim_surf.fill((0, 0, 0, 102))
 
@@ -44,27 +43,19 @@ class GameMenu:
             box_text = f"[X] {algo}" if algo in self.selected_algos else f"[ ] {algo}"
             btn = pygame_gui.elements.UIButton(
                 relative_rect=pygame.Rect(10, y_offset, 200, 30),
-                text=box_text,
-                manager=self.manager,
-                container=self.panel,
-                visible=False
+                text=box_text, manager=self.manager, container=self.panel, visible=False
             )
             self.algo_btns[algo] = btn
             y_offset += 30
 
         self.run_solver_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(10, y_offset + 5, 200, 40),
-            text="Run Solver",
-            manager=self.manager,
-            container=self.panel,
-            visible=False
+            text="Run Solver", manager=self.manager, container=self.panel, visible=False
         )
 
         self.toggle_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(menu_width - 30, (window_height // 2) - 40, 30, 80),
-            text=">",
-            manager=self.manager,
-            container=self.panel
+            text=">", manager=self.manager, container=self.panel
         )
 
     def toggle_expansion(self):
@@ -90,23 +81,54 @@ class GameMenu:
     def update_moves(self, count, level_num):
         self.move_label.set_text(f"Level {level_num} Moves: {count}")
 
+    # --- NEW: Safely reset the AI menu when a level changes ---
+    def reset_ai_menu(self):
+        for btn in self.playback_btns.values():
+            btn.kill()
+        self.playback_btns.clear()
+        
+        # Restore checkboxes and run button only if the dropdown was left open
+        if self.ai_dropdown_open:
+            for btn in self.algo_btns.values(): btn.show()
+            self.run_solver_btn.show()
+
+    def show_results(self, results_dict):
+        for btn in self.algo_btns.values(): btn.hide()
+        self.run_solver_btn.hide()
+        
+        for btn in self.playback_btns.values(): btn.kill()
+        self.playback_btns.clear()
+        
+        y_offset = 110
+        for algo, path in results_dict.items():
+            if path is not None:
+                text = f"Watch {algo} ({len(path)} steps)"
+            else:
+                # --- CHANGED: Now says Deadlocked ---
+                text = f"{algo} Deadlocked"
+                
+            btn = pygame_gui.elements.UIButton(
+                relative_rect=pygame.Rect(10, y_offset, 250, 30),
+                text=text, manager=self.manager, container=self.panel
+            )
+            self.playback_btns[algo] = btn
+            y_offset += 35
+
     def process_events(self, event):
-        """Processes UI events and returns a command string if the main game needs to do something."""
         self.manager.process_events(event)
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.toggle_btn:
                 self.toggle_expansion()
-            
             elif event.ui_element == self.ai_toggle_btn:
-                if not self.expanded:
-                    self.toggle_expansion()
+                if not self.expanded: self.toggle_expansion()
                 self.toggle_ai_dropdown()
-            
             elif event.ui_element == self.run_solver_btn:
-                # Tell main.py that the run button was clicked!
                 return "RUN_SOLVER"
-            
+            elif event.ui_element in self.playback_btns.values():
+                for algo, btn in self.playback_btns.items():
+                    if event.ui_element == btn:
+                        return f"PLAYBACK_{algo}"
             else:
                 for algo_name, btn_element in self.algo_btns.items():
                     if event.ui_element == btn_element:
