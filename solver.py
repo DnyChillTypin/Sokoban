@@ -18,7 +18,6 @@ class SokobanSolver:
         # --- OPTIMIZATION: Identify all non-target corners! ---
         for row in range(level.rows):
             for col in range(level.columns):
-                # We don't care about walls or targets
                 if (col, row) in self.walls or (col, row) in self.targets:
                     continue
                 
