@@ -9,7 +9,6 @@ fps = 60
 menu_width = int(window_width * 0.2)
 game_width = window_width - menu_width
 
-menu_bg_color = ("#21c9eb")
 bg_image_path = 'assets/graphics/WallpaperScifi.png'
 
 tile_mapping = {

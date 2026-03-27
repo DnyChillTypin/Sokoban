@@ -85,7 +85,14 @@ class Game:
         return False
 
     def execute_solvers(self):
-        print(f"\nExecuting Solver Engine...")
+        # Don't run anything if no algorithms are selected!
+        if len(self.menu.selected_algos) == 0:
+            print("\nPlease select at least one algorithm first!")
+            return
+
+        print(f"\n{'='*70}")
+        print(f"Executing Solver Engine...")
+        print(f"{'='*70}")
         
         self.menu.run_solver_btn.set_text("Running...")
         self.menu.update(0.016) 
@@ -100,23 +107,30 @@ class Game:
         current_state = solver.get_initial_state(self.player, self.level)
         self.solver_results.clear()
         
+        # Formatted Header for 5 Columns
+        print(f"{'Algorithm':<15} | {'Time (s)':<10} | {'Visited':<12} | {'Generated':<12} | {'Moves':<8}")
+        print("-" * 70)
+        
         for algo in self.menu.selected_algos:
-            start_time = time.time()
-            
-            if algo == 'BFS': 
-                path = solver.solve_bfs(current_state)
-            elif algo == 'DFS': 
-                path = solver.solve_dfs(current_state)
-            elif algo == 'A*': 
-                path = solver.solve_astar(current_state)
+            if algo == 'BFS': result = solver.solve_bfs(current_state)
+            elif algo == 'DFS': result = solver.solve_dfs(current_state)
+            elif algo == 'A*': result = solver.solve_astar(current_state)
+            elif algo == 'Best-FS': result = solver.solve_best_first(current_state)
                 
-            # Store the pure list!
-            self.solver_results[algo] = path
+            self.solver_results[algo] = result['path']
             
-            elapsed_time = time.time() - start_time
-            path_len = len(path) if path else 'Deadlocked'
-            print(f"-> {algo} finished in {elapsed_time:.4f}s | Steps: {path_len}")
+            time_val = f"{result['time']:.4f}"
+            visited = result['visited']
+            generated = result['generated']
             
+            if result['path'] is not None:
+                moves = len(result['path'])
+            else:
+                moves = "FAIL"
+                
+            print(f"{algo:<15} | {time_val:<10} | {visited:<12} | {generated:<12} | {moves:<8}")
+            
+        print(f"{'='*70}\n")
         self.menu.show_results(self.solver_results)
 
     def quit_game(self):

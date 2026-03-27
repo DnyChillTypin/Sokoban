@@ -7,7 +7,7 @@ class GameMenu:
         self.manager = pygame_gui.UIManager((window_width, window_height))
         self.expanded = False
         self.ai_dropdown_open = False
-        self.selected_algos = {'A*'}
+        self.selected_algos = set() # Start with nothing checked
         
         self.playback_btns = {} 
         
@@ -39,7 +39,8 @@ class GameMenu:
 
         self.algo_btns = {}
         y_offset = 110
-        for algo in ['A*', 'BFS', 'DFS']:
+        algos = ['BFS', 'DFS', 'A*', 'Best-FS']
+        for algo in algos:
             box_text = f"[X] {algo}" if algo in self.selected_algos else f"[ ] {algo}"
             btn = pygame_gui.elements.UIButton(
                 relative_rect=pygame.Rect(10, y_offset, 200, 30),
@@ -81,13 +82,11 @@ class GameMenu:
     def update_moves(self, count, level_num):
         self.move_label.set_text(f"Level {level_num} Moves: {count}")
 
-    # --- NEW: Safely reset the AI menu when a level changes ---
     def reset_ai_menu(self):
         for btn in self.playback_btns.values():
             btn.kill()
         self.playback_btns.clear()
         
-        # Restore checkboxes and run button only if the dropdown was left open
         if self.ai_dropdown_open:
             for btn in self.algo_btns.values(): btn.show()
             self.run_solver_btn.show()
@@ -104,7 +103,6 @@ class GameMenu:
             if path is not None:
                 text = f"Watch {algo} ({len(path)} steps)"
             else:
-                # --- CHANGED: Now says Deadlocked ---
                 text = f"{algo} Deadlocked"
                 
             btn = pygame_gui.elements.UIButton(

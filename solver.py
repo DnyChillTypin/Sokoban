@@ -1,11 +1,12 @@
 import collections
 import heapq
+import time
 
 class SokobanSolver:
     def __init__(self, level):
         self.walls = set()
         self.targets = set()
-        self.deadlocks = set() # --- NEW: Memory for deadly corners ---
+        self.deadlocks = set() 
         
         for row in range(level.rows):
             for col in range(level.columns):
@@ -15,24 +16,21 @@ class SokobanSolver:
                 elif val in ['3', '4']: 
                     self.targets.add((col, row))
 
-        # --- OPTIMIZATION: Identify all non-target corners! ---
         for row in range(level.rows):
             for col in range(level.columns):
                 if (col, row) in self.walls or (col, row) in self.targets:
                     continue
                 
-                # Check for walls blocking the horizontal and vertical axes
                 up_wall = (col, row - 1) in self.walls
                 down_wall = (col, row + 1) in self.walls
                 left_wall = (col - 1, row) in self.walls
                 right_wall = (col + 1, row) in self.walls
                 
-                # If it is blocked vertically AND horizontally, it's a corner deadlock.
                 if (up_wall or down_wall) and (left_wall or right_wall):
                     self.deadlocks.add((col, row))
 
     def get_initial_state(self, player, level):
-        boxes = tuple(sorted([tuple(box) for box in level.boxes]))
+        boxes = frozenset(tuple(box) for box in level.boxes)
         return (player.x, player.y, boxes)
 
     def is_goal_state(self, state):
@@ -49,46 +47,18 @@ class SokobanSolver:
             if (nx, ny) in self.walls: 
                 continue
                 
-            new_boxes = list(boxes)
             if (nx, ny) in boxes:
                 bx, by = nx + dx, ny + dy
                 
-                # --- OPTIMIZATION: Skip this move entirely if it pushes a box into a deadlock! ---
                 if (bx, by) in self.walls or (bx, by) in boxes or (bx, by) in self.deadlocks:
                     continue
-                    
+                
+                new_boxes = set(boxes)
                 new_boxes.remove((nx, ny))
-                new_boxes.append((bx, by))
-                
-            yield move_dir, (nx, ny, tuple(sorted(new_boxes)))
-
-    def solve_bfs(self, initial_state):
-        queue = collections.deque([(initial_state, [])])
-        visited = set([initial_state])
-        
-        while queue:
-            state, path = queue.popleft()
-            if self.is_goal_state(state): return path
-                
-            for move, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
-                    queue.append((next_state, path + [move]))
-        return None
-
-    def solve_dfs(self, initial_state):
-        stack = [(initial_state, [])]
-        visited = set([initial_state])
-        
-        while stack:
-            state, path = stack.pop()
-            if self.is_goal_state(state): return path
-                
-            for move, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
-                    stack.append((next_state, path + [move]))
-        return None
+                new_boxes.add((bx, by))
+                yield move_dir, (nx, ny, frozenset(new_boxes))
+            else:
+                yield move_dir, (nx, ny, boxes)
 
     def heuristic(self, state):
         _, _, boxes = state
@@ -98,20 +68,92 @@ class SokobanSolver:
             total += min_dist
         return total
 
+    def solve_bfs(self, initial_state):
+        start_time = time.time()
+        queue = collections.deque([(initial_state, [])])
+        visited = set([initial_state])
+        nodes_visited = 0
+        nodes_generated = 1 
+        
+        while queue:
+            state, path = queue.popleft()
+            nodes_visited += 1
+            
+            if self.is_goal_state(state): 
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                
+            for move, next_state in self.get_valid_moves(state):
+                if next_state not in visited:
+                    visited.add(next_state)
+                    nodes_generated += 1
+                    queue.append((next_state, path + [move]))
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+
+    def solve_dfs(self, initial_state):
+        start_time = time.time()
+        stack = [(initial_state, [])]
+        visited = set([initial_state])
+        nodes_visited = 0
+        nodes_generated = 1
+        
+        while stack:
+            state, path = stack.pop()
+            nodes_visited += 1
+            
+            if self.is_goal_state(state): 
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                
+            for move, next_state in self.get_valid_moves(state):
+                if next_state not in visited:
+                    visited.add(next_state)
+                    nodes_generated += 1
+                    stack.append((next_state, path + [move]))
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+
     def solve_astar(self, initial_state):
+        start_time = time.time()
         count = 0 
         priority_queue = [(0, count, initial_state, [])]
         visited = set([initial_state])
+        nodes_visited = 0
+        nodes_generated = 1
         
         while priority_queue:
             cost, _, state, path = heapq.heappop(priority_queue)
+            nodes_visited += 1
             
-            if self.is_goal_state(state): return path
+            if self.is_goal_state(state): 
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
                 
             for move, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
                     visited.add(next_state)
                     count += 1
+                    nodes_generated += 1
                     priority = len(path) + 1 + self.heuristic(next_state)
                     heapq.heappush(priority_queue, (priority, count, next_state, path + [move]))
-        return None
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+
+    def solve_best_first(self, initial_state):
+        start_time = time.time()
+        count = 0 
+        priority_queue = [(0, count, initial_state, [])]
+        visited = set([initial_state])
+        nodes_visited = 0
+        nodes_generated = 1
+        
+        while priority_queue:
+            _, _, state, path = heapq.heappop(priority_queue)
+            nodes_visited += 1
+            
+            if self.is_goal_state(state): 
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                
+            for move, next_state in self.get_valid_moves(state):
+                if next_state not in visited:
+                    visited.add(next_state)
+                    count += 1
+                    nodes_generated += 1
+                    priority = self.heuristic(next_state) 
+                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move]))
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
