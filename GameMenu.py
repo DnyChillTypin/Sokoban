@@ -4,10 +4,10 @@ from settings import *
 
 class GameMenu:
     def __init__(self):
-        self.manager = pygame_gui.UIManager((window_width, window_height))
+        self.manager = pygame_gui.UIManager((window_width, window_height), 'theme.json')
         self.expanded = False
         self.ai_dropdown_open = False
-        self.selected_algos = set() # Start with nothing checked
+        self.selected_algos = set() 
         
         self.playback_btns = {} 
         
@@ -24,34 +24,38 @@ class GameMenu:
         )
 
         self.move_label = pygame_gui.elements.UILabel(
-            relative_rect=pygame.Rect(10, 20, 250, 30),
+            relative_rect=pygame.Rect(10, 20, 250, 40),
             text="Level 0 Moves: 0",
             manager=self.manager,
             container=self.panel
         )
 
         self.ai_toggle_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(10, 70, 200, 40),
+            relative_rect=pygame.Rect(10, 70, 250, 75),
             text="AI Solver ▼",
             manager=self.manager,
-            container=self.panel
+            container=self.panel,
+            object_id=pygame_gui.core.ObjectID(class_id='@main_btn') 
         )
 
         self.algo_btns = {}
-        y_offset = 110
+        y_offset = 155
         algos = ['BFS', 'DFS', 'A*', 'Best-FS']
         for algo in algos:
             box_text = f"[X] {algo}" if algo in self.selected_algos else f"[ ] {algo}"
+            # --- NEW: Scaled up to 250x75 and tagged with @main_btn ---
             btn = pygame_gui.elements.UIButton(
-                relative_rect=pygame.Rect(10, y_offset, 200, 30),
-                text=box_text, manager=self.manager, container=self.panel, visible=False
+                relative_rect=pygame.Rect(10, y_offset, 250, 75), 
+                text=box_text, manager=self.manager, container=self.panel, visible=False,
+                object_id=pygame_gui.core.ObjectID(class_id='@main_btn') 
             )
             self.algo_btns[algo] = btn
-            y_offset += 30
+            y_offset += 85 # --- NEW: Increased spacing to fit the big buttons ---
 
         self.run_solver_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(10, y_offset + 5, 200, 40),
-            text="Run Solver", manager=self.manager, container=self.panel, visible=False
+            relative_rect=pygame.Rect(10, y_offset + 10, 250, 75),
+            text="Run Solver", manager=self.manager, container=self.panel, visible=False,
+            object_id=pygame_gui.core.ObjectID(class_id='@main_btn')
         )
 
         self.toggle_btn = pygame_gui.elements.UIButton(
@@ -74,10 +78,13 @@ class GameMenu:
         self.ai_dropdown_open = not self.ai_dropdown_open
         self.ai_toggle_btn.set_text("AI Solver ▲" if self.ai_dropdown_open else "AI Solver ▼")
         
-        for btn in self.algo_btns.values():
-            btn.show() if self.ai_dropdown_open else btn.hide()
-            
-        self.run_solver_btn.show() if self.ai_dropdown_open else self.run_solver_btn.hide()
+        if len(self.playback_btns) > 0:
+            for btn in self.playback_btns.values():
+                btn.show() if self.ai_dropdown_open else btn.hide()
+        else:
+            for btn in self.algo_btns.values():
+                btn.show() if self.ai_dropdown_open else btn.hide()
+            self.run_solver_btn.show() if self.ai_dropdown_open else self.run_solver_btn.hide()
 
     def update_moves(self, count, level_num):
         self.move_label.set_text(f"Level {level_num} Moves: {count}")
@@ -98,7 +105,10 @@ class GameMenu:
         for btn in self.playback_btns.values(): btn.kill()
         self.playback_btns.clear()
         
-        y_offset = 110
+        self.ai_dropdown_open = True
+        self.ai_toggle_btn.set_text("AI Solver ▲")
+        
+        y_offset = 155
         for algo, path in results_dict.items():
             if path is not None:
                 text = f"Watch {algo} ({len(path)} steps)"
@@ -106,11 +116,12 @@ class GameMenu:
                 text = f"{algo} Deadlocked"
                 
             btn = pygame_gui.elements.UIButton(
-                relative_rect=pygame.Rect(10, y_offset, 250, 30),
-                text=text, manager=self.manager, container=self.panel
+                relative_rect=pygame.Rect(10, y_offset, 250, 75), 
+                text=text, manager=self.manager, container=self.panel,
+                object_id=pygame_gui.core.ObjectID(class_id='@main_btn')
             )
             self.playback_btns[algo] = btn
-            y_offset += 35
+            y_offset += 85
 
     def process_events(self, event):
         self.manager.process_events(event)

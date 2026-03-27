@@ -131,8 +131,12 @@ class Game:
             print(f"{algo:<15} | {time_val:<10} | {visited:<12} | {generated:<12} | {moves:<8}")
             
         print(f"{'='*70}\n")
+        
+        # --- NEW: Reset the button text so it isn't stuck! ---
+        self.menu.run_solver_btn.set_text("Run Solver")
+        
         self.menu.show_results(self.solver_results)
-
+        
     def quit_game(self):
         pygame.quit()
         sys.exit()
