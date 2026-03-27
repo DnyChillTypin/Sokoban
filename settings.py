@@ -17,7 +17,9 @@ tile_mapping = {
     '1': 'wall',
     '2': 'box',
     '3': 'target',
-    '4': 'box_on_target'
+    '4': 'box_on_target',
+    '5': 'shield',
+    '6': 'bomb'
 }
 
 textures = {
@@ -27,7 +29,14 @@ textures = {
     'target': 'assets/graphics/interactables/ButtonUpYallow.png',
     'box_on_target': 'assets/graphics/interactables/BoxGreen.png', 
     'player': 'assets/graphics/ScotterBlue.png',
-    'bg_image_path': 'assets/graphics/WallpaperScifi.png'
+    'bg_image_path': 'assets/graphics/WallpaperScifi.png',
+    'shield': 'assets/graphics/items/Shield.png',
+    'bomb': 'assets/graphics/items/Bomb.png',
+    'bomb_tini': 'assets/graphics/items/BombTini.png',
+    'Bomb_white': 'assets/graphics/items/BombWhite.png',
+    'Bomb_explode_1': 'assets/graphics/items/Explode1.png',
+    'Bomb_explode_2': 'assets/graphics/items/Explode2.png',
+    'Bomb_explode_3': 'assets/graphics/items/Explode3.png'
 }
 
 '''
