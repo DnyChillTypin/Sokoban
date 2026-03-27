@@ -1,5 +1,6 @@
 import os 
 import pygame
+import random
 from settings import *
 
 class Level:
@@ -17,6 +18,31 @@ class Level:
 
         self.load_level()
         self.load_graphics()
+
+        # --- NEW: Random Flower Generation ---
+        self.flowers = {} 
+        
+        # Load and scale the images to match your tile size
+        flower_imgs = [
+            pygame.transform.scale(pygame.image.load('assets/graphics/props/FlowerWhite.png').convert_alpha(), (scaled_tile, scaled_tile)),
+            pygame.transform.scale(pygame.image.load('assets/graphics/props/FlowerBlue.png').convert_alpha(), (scaled_tile, scaled_tile))
+        ]
+        
+        # 1. Find all the empty floor tiles ('0')
+        floor_tiles = []
+        for row in range(self.rows):
+            for col in range(self.columns):
+                if self.grid[row][col] == '0':
+                    floor_tiles.append((col, row))
+        
+        # 2. Calculate how many flowers we need (2 to 3 per 10 tiles)
+        num_flowers = int((len(floor_tiles) / 20) * random.uniform(2, 3))
+        
+        # 3. Pick random spots and assign a random flower color!
+        if num_flowers > 0 and floor_tiles:
+            chosen_tiles = random.sample(floor_tiles, min(num_flowers, len(floor_tiles)))
+            for tile in chosen_tiles:
+                self.flowers[tile] = random.choice(flower_imgs)
 
     def load_level(self):
         file_path = f'levels/{self.level_number}.txt'
@@ -98,6 +124,9 @@ class Level:
                     surface.blit(self.images['ground_dark'], (x, y))
                 else:
                     surface.blit(self.images['ground_light'], (x, y))
+
+                if (col_index, row_index) in self.flowers:
+                    surface.blit(self.flowers[(col_index, row_index)], (x, y))
 
                 if tile_val == '1':
                     specific_wall = self.get_wall_texture_name(row_index, col_index)
