@@ -30,8 +30,8 @@ class Game:
         self.saved_solver_state = None 
 
         self.level_complete_waiting = False
-        self.font_large = pygame.font.SysFont(None, 100) 
-        self.font_small = pygame.font.SysFont(None, 60)  
+        self.font_large = pygame.font.Font('assets/PIXY.ttf', 100) 
+        self.font_small = pygame.font.Font('assets/PIXY.ttf', 60)  
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
 
