@@ -85,14 +85,13 @@ class Game:
         return False
 
     def execute_solvers(self):
-        # Don't run anything if no algorithms are selected!
         if len(self.menu.selected_algos) == 0:
             print("\nPlease select at least one algorithm first!")
             return
 
-        print(f"\n{'='*70}")
+        print(f"\n{'='*95}")
         print(f"Executing Solver Engine...")
-        print(f"{'='*70}")
+        print(f"{'='*95}")
         
         self.menu.run_solver_btn.set_text("Running...")
         self.menu.update(0.016) 
@@ -107,9 +106,9 @@ class Game:
         current_state = solver.get_initial_state(self.player, self.level)
         self.solver_results.clear()
         
-        # Formatted Header for 5 Columns
-        print(f"{'Algorithm':<15} | {'Time (s)':<10} | {'Visited':<12} | {'Generated':<12} | {'Moves':<8}")
-        print("-" * 70)
+        # --- NEW: Formatted Header for all 8 metrics ---
+        print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}")
+        print("-" * 95)
         
         for algo in self.menu.selected_algos:
             if algo == 'BFS': result = solver.solve_bfs(current_state)
@@ -119,24 +118,27 @@ class Game:
                 
             self.solver_results[algo] = result['path']
             
+            # --- NEW: Extracting the new data ---
             time_val = f"{result['time']:.4f}"
             visited = result['visited']
             generated = result['generated']
+            max_mem = result['max_fringe']
+            pruned = result['pruned']
             
             if result['path'] is not None:
                 moves = len(result['path'])
+                pushes = result['pushes']
             else:
                 moves = "FAIL"
+                pushes = "FAIL"
                 
-            print(f"{algo:<15} | {time_val:<10} | {visited:<12} | {generated:<12} | {moves:<8}")
+            print(f"{algo:<12} | {time_val:<10} | {visited:<10} | {generated:<10} | {max_mem:<10} | {pruned:<8} | {pushes:<8} | {moves:<8}")
             
-        print(f"{'='*70}\n")
+        print(f"{'='*95}\n")
         
-        # --- NEW: Reset the button text so it isn't stuck! ---
         self.menu.run_solver_btn.set_text("Run Solver")
-        
         self.menu.show_results(self.solver_results)
-        
+
     def quit_game(self):
         pygame.quit()
         sys.exit()

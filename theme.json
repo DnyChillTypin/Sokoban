@@ -1,0 +1,39 @@
+{
+    "button": {
+        "colours": {
+            "normal_text": "#000000",
+            "hovered_text": "#333333",
+            "active_text": "#000000",
+            "selected_text": "#000000",
+            "normal_bg": "#00000000",
+            "hovered_bg": "#00000000",
+            "active_bg": "#00000000",
+            "selected_bg": "#00000000",
+            "normal_border": "#00000000",
+            "hovered_border": "#00000000",
+            "active_border": "#00000000",
+            "selected_border": "#00000000"
+        },
+        "misc": {
+            "border_width": "0",
+            "shadow_width": "0",
+            "text_shadow_size": "0"
+        }
+    },
+    "#ai_btn": {
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/LongWhiteBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/LongWhiteBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"},
+            "selected_hovered_image": {"path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"}
+        }
+    },
+    "#dropdown_bg": {
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/DropDownSelect5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/DropDownSelect5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/DropDownSelect5x.png"}
+        }
+    }
+}

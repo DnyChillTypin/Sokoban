@@ -7,6 +7,7 @@ class SokobanSolver:
         self.walls = set()
         self.targets = set()
         self.deadlocks = set() 
+        self.current_pruned = 0 # --- NEW: Tracks deadlocks avoided
         
         for row in range(level.rows):
             for col in range(level.columns):
@@ -50,15 +51,23 @@ class SokobanSolver:
             if (nx, ny) in boxes:
                 bx, by = nx + dx, ny + dy
                 
-                if (bx, by) in self.walls or (bx, by) in boxes or (bx, by) in self.deadlocks:
+                # Normal rules (can't push into walls or boxes)
+                if (bx, by) in self.walls or (bx, by) in boxes:
+                    continue
+                
+                # --- NEW: Track when the Deadlock Scanner saves us! ---
+                if (bx, by) in self.deadlocks:
+                    self.current_pruned += 1
                     continue
                 
                 new_boxes = set(boxes)
                 new_boxes.remove((nx, ny))
                 new_boxes.add((bx, by))
-                yield move_dir, (nx, ny, frozenset(new_boxes))
+                # Yields True for "is_push"
+                yield move_dir, True, (nx, ny, frozenset(new_boxes))
             else:
-                yield move_dir, (nx, ny, boxes)
+                # Yields False for "is_push"
+                yield move_dir, False, (nx, ny, boxes)
 
     def heuristic(self, state):
         _, _, boxes = state
@@ -70,90 +79,107 @@ class SokobanSolver:
 
     def solve_bfs(self, initial_state):
         start_time = time.time()
-        queue = collections.deque([(initial_state, [])])
+        self.current_pruned = 0
+        # Queue now holds: (state, path, pushes)
+        queue = collections.deque([(initial_state, [], 0)])
         visited = set([initial_state])
         nodes_visited = 0
         nodes_generated = 1 
+        max_fringe = 1
         
         while queue:
-            state, path = queue.popleft()
+            max_fringe = max(max_fringe, len(queue))
+            state, path, pushes = queue.popleft()
             nodes_visited += 1
             
             if self.is_goal_state(state): 
-                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': pushes, 'pruned': self.current_pruned}
                 
-            for move, next_state in self.get_valid_moves(state):
+            for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
                     visited.add(next_state)
                     nodes_generated += 1
-                    queue.append((next_state, path + [move]))
-        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                    queue.append((next_state, path + [move], pushes + (1 if is_push else 0)))
+                    
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': 0, 'pruned': self.current_pruned}
 
     def solve_dfs(self, initial_state):
         start_time = time.time()
-        stack = [(initial_state, [])]
+        self.current_pruned = 0
+        stack = [(initial_state, [], 0)]
         visited = set([initial_state])
         nodes_visited = 0
         nodes_generated = 1
+        max_fringe = 1
         
         while stack:
-            state, path = stack.pop()
+            max_fringe = max(max_fringe, len(stack))
+            state, path, pushes = stack.pop()
             nodes_visited += 1
             
             if self.is_goal_state(state): 
-                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': pushes, 'pruned': self.current_pruned}
                 
-            for move, next_state in self.get_valid_moves(state):
+            for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
                     visited.add(next_state)
                     nodes_generated += 1
-                    stack.append((next_state, path + [move]))
-        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                    stack.append((next_state, path + [move], pushes + (1 if is_push else 0)))
+                    
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': 0, 'pruned': self.current_pruned}
 
     def solve_astar(self, initial_state):
         start_time = time.time()
         count = 0 
-        priority_queue = [(0, count, initial_state, [])]
+        self.current_pruned = 0
+        priority_queue = [(0, count, initial_state, [], 0)]
         visited = set([initial_state])
         nodes_visited = 0
         nodes_generated = 1
+        max_fringe = 1
         
         while priority_queue:
-            cost, _, state, path = heapq.heappop(priority_queue)
+            max_fringe = max(max_fringe, len(priority_queue))
+            cost, _, state, path, pushes = heapq.heappop(priority_queue)
             nodes_visited += 1
             
             if self.is_goal_state(state): 
-                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': pushes, 'pruned': self.current_pruned}
                 
-            for move, next_state in self.get_valid_moves(state):
+            for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
                     visited.add(next_state)
                     count += 1
                     nodes_generated += 1
                     priority = len(path) + 1 + self.heuristic(next_state)
-                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move]))
-        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+                    
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': 0, 'pruned': self.current_pruned}
 
     def solve_best_first(self, initial_state):
         start_time = time.time()
         count = 0 
-        priority_queue = [(0, count, initial_state, [])]
+        self.current_pruned = 0
+        priority_queue = [(0, count, initial_state, [], 0)]
         visited = set([initial_state])
         nodes_visited = 0
         nodes_generated = 1
+        max_fringe = 1
         
         while priority_queue:
-            _, _, state, path = heapq.heappop(priority_queue)
+            max_fringe = max(max_fringe, len(priority_queue))
+            _, _, state, path, pushes = heapq.heappop(priority_queue)
             nodes_visited += 1
             
             if self.is_goal_state(state): 
-                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                return {'path': path, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': pushes, 'pruned': self.current_pruned}
                 
-            for move, next_state in self.get_valid_moves(state):
+            for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
                     visited.add(next_state)
                     count += 1
                     nodes_generated += 1
                     priority = self.heuristic(next_state) 
-                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move]))
-        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated}
+                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+                    
+        return {'path': None, 'time': time.time() - start_time, 'visited': nodes_visited, 'generated': nodes_generated, 'max_fringe': max_fringe, 'pushes': 0, 'pruned': self.current_pruned}
