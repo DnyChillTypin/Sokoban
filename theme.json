@@ -77,5 +77,20 @@
             "selected_image": {"path": "assets/graphics/Buttons/LongRedBtnUp5x.png"},
             "selected_hovered_image": {"path": "assets/graphics/Buttons/LongRedBtnUp5x.png"}
         }
+    },
+    "#algo_btn": {
+        "colours": {
+            "normal_text": "#FFFFFF",
+            "hovered_text": "#DDDDDD",
+            "active_text": "#FFFFFF",
+            "selected_text": "#FFFFFF"
+        },
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/LongRedBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/LongRedBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"},
+            "selected_hovered_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"}
+        }
     }
 }

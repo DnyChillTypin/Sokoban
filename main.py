@@ -106,7 +106,6 @@ class Game:
         current_state = solver.get_initial_state(self.player, self.level)
         self.solver_results.clear()
         
-        # --- NEW: Formatted Header for all 8 metrics ---
         print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}")
         print("-" * 95)
         
@@ -118,7 +117,6 @@ class Game:
                 
             self.solver_results[algo] = result['path']
             
-            # --- NEW: Extracting the new data ---
             time_val = f"{result['time']:.4f}"
             visited = result['visited']
             generated = result['generated']

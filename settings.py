@@ -37,8 +37,3 @@ textures = {
     'Bomb_explode_2': 'assets/graphics/items/Explode2.png',
     'Bomb_explode_3': 'assets/graphics/items/Explode3.png'
 }
-
-'''
-nodes generated
-nodes visited 
-'''
