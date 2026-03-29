@@ -87,13 +87,14 @@ class Game:
     def execute_solvers(self):
         if len(self.menu.selected_algos) == 0:
             print("\nPlease select at least one algorithm first!")
+            self.menu.is_playing = False
+            self.menu.play_btn.unselect()
             return
 
         print(f"\n{'='*95}")
         print(f"Executing Solver Engine...")
         print(f"{'='*95}")
         
-        self.menu.run_solver_btn.set_text("Running...")
         self.menu.update(0.016) 
         self.draw()             
         
@@ -110,10 +111,11 @@ class Game:
         print("-" * 95)
         
         for algo in self.menu.selected_algos:
+            # Note: Changed 'Best-FS' to 'BestFS' so it exactly matches your menu spelling!
             if algo == 'BFS': result = solver.solve_bfs(current_state)
             elif algo == 'DFS': result = solver.solve_dfs(current_state)
             elif algo == 'A*': result = solver.solve_astar(current_state)
-            elif algo == 'Best-FS': result = solver.solve_best_first(current_state)
+            elif algo == 'BestFS': result = solver.solve_best_first(current_state) 
                 
             self.solver_results[algo] = result['path']
             
@@ -134,8 +136,10 @@ class Game:
             
         print(f"{'='*95}\n")
         
-        self.menu.run_solver_btn.set_text("Run Solver")
         self.menu.show_results(self.solver_results)
+        
+        self.menu.is_playing = False
+        self.menu.play_btn.unselect()
 
     def quit_game(self):
         pygame.quit()
@@ -154,7 +158,9 @@ class Game:
                 self.quit_game()
 
             action = self.menu.process_events(event)
-
+            if action == "PLAY_CLICKED":
+                self.execute_solvers()
+                
             if self.level_complete_waiting:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     self.current_level_num += 1

@@ -8,13 +8,16 @@ class GameMenu:
         self.ai_dropdown_open = False
         self.expanded = False
         self.selected_algos = set() 
+        self.is_playing = False 
+        
+        self.algo_results = {algo: None for algo in ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']}
         
         self.custom_font = pygame.font.Font('assets/PIXY.ttf', 24)
         
         self.current_move_text = "Level 0 Moves: 0"
         
-        self.dim_surf = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
-        self.dim_surf.set_alpha(204)
+        self.dim_surf = pygame.Surface((window_width, window_height))
+        self.dim_surf.set_alpha(204) 
         self.dim_surf.fill((0, 0, 0))
 
         self.create_bg_pattern()
@@ -28,7 +31,7 @@ class GameMenu:
         tile_h = dark_tile.get_height()
         
         max_width = window_width // 2
-        self.bg_pattern = pygame.Surface((max_width, window_height))
+        self.bg_pattern = pygame.Surface((max_width, window_height)) 
         
         for y in range(0, window_height, tile_h):
             for x in range(0, max_width, tile_w):
@@ -39,13 +42,12 @@ class GameMenu:
                     self.bg_pattern.blit(light_tile, (x, y))
                 else:
                     self.bg_pattern.blit(dark_tile, (x, y))
-        
+                    
         dark_filter = pygame.Surface((max_width, window_height))
-        dark_filter.set_alpha(60) 
+        dark_filter.set_alpha(150) 
         dark_filter.fill((0, 0, 0))
-        
         self.bg_pattern.blit(dark_filter, (0, 0))
-        
+
     def setup_ui(self):
         self.panel = pygame_gui.elements.UIPanel(
             relative_rect=pygame.Rect(0, 0, menu_width, window_height),
@@ -57,6 +59,7 @@ class GameMenu:
         btn_height = 80
         btn_x = 30 
         
+        # 1. Move Panel 
         move_y = 20
         self.move_display = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(btn_x, move_y, btn_width, btn_height),
@@ -66,6 +69,7 @@ class GameMenu:
             object_id='#move_panel' 
         )
 
+        # 2. AI Solver Button 
         ai_y = move_y + btn_height + 10 
         self.ai_toggle_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(btn_x, ai_y, btn_width, btn_height),
@@ -75,6 +79,20 @@ class GameMenu:
             object_id='#ai_btn' 
         )
 
+        # 3. Play Button 
+        play_x = btn_x + btn_width + 10 
+        play_width = 80
+        
+        self.play_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(play_x, ai_y, play_width, btn_height), 
+            text="", 
+            manager=self.manager,
+            container=self.panel,
+            visible=False,
+            object_id='#play_btn'
+        )
+
+        # 4. Dropdown Background 
         dropdown_y = ai_y + btn_height
         dropdown_width = 280
         dropdown_x = btn_x - 20 
@@ -89,11 +107,14 @@ class GameMenu:
             object_id='#dropdown_bg' 
         )
 
+        # 5. Algorithm Toggle Buttons & Result Buttons
         self.algo_btns = {}
+        self.result_btns = {} 
         algo_names = ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']
         current_y = dropdown_y + 100 
         
         for algo in algo_names:
+            # Long Checkbox Button
             btn = pygame_gui.elements.UIButton(
                 relative_rect=pygame.Rect(btn_x, current_y, btn_width, btn_height),
                 text="", 
@@ -103,8 +124,20 @@ class GameMenu:
                 object_id='#algo_btn'
             )
             self.algo_btns[algo] = btn
+            
+            res_btn = pygame_gui.elements.UIButton(
+                relative_rect=pygame.Rect(play_x + 20, current_y, play_width, btn_height),
+                text="", 
+                manager=self.manager,
+                container=self.panel,
+                visible=False, 
+                object_id='#result_btn'
+            )
+            self.result_btns[algo] = res_btn
+            
             current_y += btn_height + 15 
 
+        # 6. Expansion Toggle
         self.toggle_width = 80
         self.toggle_height = 240
         toggle_x = menu_width - (self.toggle_width // 2)
@@ -140,31 +173,68 @@ class GameMenu:
         if self.ai_dropdown_open:
             self.dropdown_bg.show()
             self.ai_toggle_btn.select() 
+            self.play_btn.show()
             
             for name, btn in self.algo_btns.items():
                 btn.show()
                 if name in self.selected_algos:
                     btn.select()
+                    
+            for name, res_btn in self.result_btns.items():
+                if self.algo_results[name] is not None and name in self.selected_algos:
+                    res_btn.show()
         else:
             self.dropdown_bg.hide()
             self.ai_toggle_btn.unselect() 
+            self.play_btn.hide()
+            
             for btn in self.algo_btns.values():
                 btn.hide()
+            for res_btn in self.result_btns.values():
+                res_btn.hide()
 
     def update_moves(self, count, level_num):
         self.current_move_text = f"Level {level_num} Moves: {count}"
 
     def reset_ai_menu(self):
-        pass
+        self.algo_results = {algo: None for algo in ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']}
+        self.is_playing = False
+        self.play_btn.unselect()
+        for res_btn in self.result_btns.values():
+            res_btn.hide()
 
     def show_results(self, results_dict):
-        pass
+        for algo, path in results_dict.items():
+            if path is not None:
+                self.algo_results[algo] = len(path)
+            else:
+                self.algo_results[algo] = "FAIL"
+                
+            if self.ai_dropdown_open and algo in self.selected_algos:
+                self.result_btns[algo].show()
 
     def process_events(self, event):
         self.manager.process_events(event)
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if event.ui_element == self.ai_toggle_btn:
+            if event.ui_element == self.play_btn:
+                self.is_playing = not self.is_playing
+                if self.is_playing:
+                    self.play_btn.select()
+                else:
+                    self.play_btn.unselect()
+                return "PLAY_CLICKED"
+                
+            elif event.ui_element in self.result_btns.values():
+                clicked_algo = None
+                for name, res_btn in self.result_btns.items():
+                    if res_btn == event.ui_element:
+                        clicked_algo = name
+                        break
+                if clicked_algo and self.algo_results[clicked_algo] != "FAIL":
+                    return f"PLAYBACK_{clicked_algo}"
+                
+            elif event.ui_element == self.ai_toggle_btn:
                 if not self.expanded:
                     self.toggle_expansion()
                 self.toggle_ai_dropdown()
@@ -185,9 +255,12 @@ class GameMenu:
                 if clicked_algo in self.selected_algos:
                     self.selected_algos.remove(clicked_algo)
                     self.algo_btns[clicked_algo].unselect() 
+                    self.result_btns[clicked_algo].hide()
                 else:
                     self.selected_algos.add(clicked_algo)
                     self.algo_btns[clicked_algo].select() 
+                    if self.algo_results[clicked_algo] is not None:
+                        self.result_btns[clicked_algo].show()
 
         return None
 
@@ -218,12 +291,21 @@ class GameMenu:
         
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
+                
                 color = (150, 150, 150) if algo == 'Dijkstra' else (255, 255, 255)
                 algo_surf = self.custom_font.render(algo, True, color)
-                
                 algo_rect = algo_surf.get_rect(centerx=btn.rect.centerx, centery=btn.rect.y + 32)
                 
                 if algo in self.selected_algos or (btn.hovered and mouse_down):
                     algo_rect.y += 5
-                    
                 surface.blit(algo_surf, algo_rect)
+                
+                res_btn = self.result_btns[algo]
+                if res_btn.visible:
+                    res_text = str(self.algo_results[algo])
+                    res_surf = self.custom_font.render(res_text, True, (255, 255, 255))
+                    res_rect = res_surf.get_rect(centerx=res_btn.rect.centerx, centery=res_btn.rect.y + 32)
+                    
+                    if res_btn.hovered and mouse_down:
+                        res_rect.y += 5
+                    surface.blit(res_surf, res_rect)

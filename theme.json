@@ -54,13 +54,22 @@
             "selected_hovered_image": {"path": "assets/graphics/Buttons/DownSelect5x.png"}
         }
     },
+    "#play_btn": {
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/PlayBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/PlayBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/PlayBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/PlayBtnDown5x.png"},
+            "selected_hovered_image": {"path": "assets/graphics/Buttons/PlayBtnDown5x.png"}
+        }
+    },
     "#toggle_btn": {
         "images": {
-            "normal_image": {"path": "assets/graphics/Buttons/TallWhiteBtnUp5x.png"},
-            "hovered_image": {"path": "assets/graphics/Buttons/TallWhiteBtnUp5x.png"},
-            "active_image": {"path": "assets/graphics/Buttons/TallWhiteBtnDown5x.png"},
-            "selected_image": {"path": "assets/graphics/Buttons/TallWhiteBtnDown5x.png"},
-            "selected_hovered_image": {"path": "assets/graphics/Buttons/TallWhiteBtnDown5x.png"}
+            "normal_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"},
+            "selected_hovered_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"}
         }
     },
     "#move_panel": {
@@ -91,6 +100,21 @@
             "active_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"},
             "selected_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"},
             "selected_hovered_image": {"path": "assets/graphics/Buttons/LongRedBtnDown5x.png"}
+        }
+    },
+    "#result_btn": {
+        "colours": {
+            "normal_text": "#FFFFFF",
+            "hovered_text": "#DDDDDD",
+            "active_text": "#FFFFFF",
+            "selected_text": "#FFFFFF"
+        },
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/ShortRedBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/ShortRedBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"},
+            "selected_hovered_image": {"path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"}
         }
     }
 }
