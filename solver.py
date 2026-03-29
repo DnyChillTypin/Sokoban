@@ -7,7 +7,7 @@ class SokobanSolver:
         self.walls = set()
         self.targets = set()
         self.deadlocks = set() 
-        self.current_pruned = 0 # --- NEW: Tracks deadlocks avoided
+        self.current_pruned = 0 # Tracks deadlocks avoided
         
         for row in range(level.rows):
             for col in range(level.columns):
@@ -55,7 +55,7 @@ class SokobanSolver:
                 if (bx, by) in self.walls or (bx, by) in boxes:
                     continue
                 
-                # --- NEW: Track when the Deadlock Scanner saves us! ---
+                # Track when the Deadlock Scanner saves us! ---
                 if (bx, by) in self.deadlocks:
                     self.current_pruned += 1
                     continue

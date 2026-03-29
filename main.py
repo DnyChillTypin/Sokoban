@@ -106,7 +106,7 @@ class Game:
 
     def execute_solvers(self):
         if len(self.menu.selected_algos) == 0:
-            print("\nPlease select at least one algorithm first!")
+            print("\nPlease select at least one algorithm first")
             self.menu.is_playing = False
             self.menu.play_btn.unselect()
             return
@@ -159,7 +159,8 @@ class Game:
         
         self.menu.is_playing = False
         self.menu.play_btn.unselect()
-    
+        self.menu.hint_btn.enable()
+
     def execute_hint(self):
         print("calculating Hint...")
         solver = SokobanSolver(self.level)
@@ -214,7 +215,7 @@ class Game:
                     if os.path.exists(next_level_path):
                         self.load_current_level()
                     else:
-                        print("All levels cleared!")
+                        print("All levels cleared")
                         self.quit_game()
                 continue 
             
@@ -242,7 +243,8 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if self.is_playing_back:
                     self.is_playing_back = False
-                    print("Playback Interrupted!")
+                    self.menu.hint_btn.enable()
+                    print("Playback Interrupted")
 
                 if self.handle_movement_input(event.key):
                     continue
@@ -285,6 +287,7 @@ class Game:
                     self.playback_timer = current_time
                 else:
                     self.is_playing_back = False 
+                    self.menu.hint_btn.enable()
 
         if self.level.is_completed():
             self.is_playing_back = False 

@@ -20,6 +20,8 @@ class GameMenu:
         self.dim_surf.set_alpha(204) 
         self.dim_surf.fill((0, 0, 0))
 
+        self.coffee_icon = pygame.image.load('assets/graphics/Buttons/CoffeeIconRed.png').convert_alpha()
+
         self.create_bg_pattern()
         self.setup_ui()
 
@@ -59,7 +61,6 @@ class GameMenu:
         btn_height = 80
         btn_x = 30 
         
-        # 1. Move Panel 
         move_y = 20
         self.move_display = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(btn_x, move_y, btn_width, btn_height),
@@ -69,7 +70,6 @@ class GameMenu:
             object_id='#move_panel' 
         )
 
-        # 2. AI Solver Button 
         ai_y = move_y + btn_height + 10 
         self.ai_toggle_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(btn_x, ai_y, btn_width, btn_height),
@@ -79,8 +79,6 @@ class GameMenu:
             object_id='#ai_btn' 
         )
 
-        # 3. Hint Button 
-        # --- CHANGED: Visible is now True by default (removed visible=False) ---
         hint_y = ai_y + btn_height + 10
         self.hint_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(btn_x, hint_y, btn_width, btn_height),
@@ -90,7 +88,6 @@ class GameMenu:
             object_id='#hint_btn' 
         )
 
-        # 4. Play Button 
         play_x = btn_x + btn_width + 10 
         play_width = 80
         
@@ -103,7 +100,6 @@ class GameMenu:
             object_id='#play_btn'
         )
 
-        # 5. Dropdown Background 
         dropdown_y = ai_y + btn_height
         dropdown_width = 280
         dropdown_x = btn_x - 20 
@@ -118,7 +114,6 @@ class GameMenu:
             object_id='#dropdown_bg' 
         )
 
-        # 6. Algorithm Toggle Buttons & Result Buttons
         self.algo_btns = {}
         self.result_btns = {} 
         algo_names = ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']
@@ -147,7 +142,6 @@ class GameMenu:
             
             current_y += btn_height + 15 
 
-        # 7. Expansion Toggle
         self.toggle_width = 80
         self.toggle_height = 240
         toggle_x = menu_width - (self.toggle_width // 2)
@@ -170,7 +164,6 @@ class GameMenu:
         toggle_y = (window_height // 2) - (self.toggle_height // 2)
         self.toggle_btn.set_relative_position((new_toggle_x, toggle_y))
 
-        # --- CHANGED: Cleaned out the hint hiding logic from here! ---
         if self.expanded:
             self.toggle_btn.select()
         else:
@@ -185,8 +178,6 @@ class GameMenu:
             self.dropdown_bg.show()
             self.ai_toggle_btn.select() 
             self.play_btn.show()
-            
-            # Hide the Hint Button when the dropdown falls over it
             self.hint_btn.hide() 
             
             for name, btn in self.algo_btns.items():
@@ -201,8 +192,6 @@ class GameMenu:
             self.dropdown_bg.hide()
             self.ai_toggle_btn.unselect() 
             self.play_btn.hide()
-            
-            # --- CHANGED: Always show the hint button when dropdown is closed ---
             self.hint_btn.show()
             
             for btn in self.algo_btns.values():
@@ -217,6 +206,7 @@ class GameMenu:
         self.algo_results = {algo: None for algo in ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']}
         self.is_playing = False
         self.play_btn.unselect()
+        self.hint_btn.enable() 
         for res_btn in self.result_btns.values():
             res_btn.hide()
 
@@ -238,8 +228,10 @@ class GameMenu:
                 self.is_playing = not self.is_playing
                 if self.is_playing:
                     self.play_btn.select()
+                    self.hint_btn.disable() 
                 else:
                     self.play_btn.unselect()
+                    self.hint_btn.enable() 
                 return "PLAY_CLICKED"
             
             elif event.ui_element == self.hint_btn:
@@ -252,6 +244,7 @@ class GameMenu:
                         clicked_algo = name
                         break
                 if clicked_algo and self.algo_results[clicked_algo] != "FAIL":
+                    self.hint_btn.disable() 
                     return f"PLAYBACK_{clicked_algo}"
                 
             elif event.ui_element == self.ai_toggle_btn:
@@ -310,11 +303,18 @@ class GameMenu:
         surface.blit(ai_surf, ai_rect)
 
         if self.hint_btn.visible:
-            hint_surf = self.custom_font.render("Hint", True, (0, 0, 0))
-            hint_rect = hint_surf.get_rect(centerx=self.hint_btn.rect.centerx, centery=self.hint_btn.rect.y + 32)
-            if self.hint_btn.hovered and mouse_down:
-                hint_rect.y += 5 
-            surface.blit(hint_surf, hint_rect)
+            if not self.hint_btn.is_enabled:
+                icon_rect = self.coffee_icon.get_rect(centerx=self.hint_btn.rect.centerx, centery=self.hint_btn.rect.y + 35)
+                self.coffee_icon.set_alpha(255)
+                surface.blit(self.coffee_icon, icon_rect)
+                
+            else:
+                hint_surf = self.custom_font.render("Hint", True, (0, 0, 0))
+                hint_rect = hint_surf.get_rect(centerx=self.hint_btn.rect.centerx, centery=self.hint_btn.rect.y + 32)
+                
+                if self.hint_btn.hovered and mouse_down:
+                    hint_rect.y += 5 
+                surface.blit(hint_surf, hint_rect)
         
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
