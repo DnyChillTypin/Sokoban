@@ -72,6 +72,10 @@ class Game:
         self.is_playing_back = False 
         self.saved_solver_state = None
         
+        self.dead_state_active = False
+        self.hint_timer = 0
+        self.hit_box_pos = None
+
         self.level_complete_waiting = False
         self.menu.reset_ai_menu() 
         self.menu.update_moves(self.moves_count, self.current_level_num)
@@ -176,11 +180,11 @@ class Game:
                 
                 if [px, py] in boxes:
                     self.hint_box_pos = (px, py)
-                    self.hint_timer = 2.0 # Set the blink timer for exactly 2 seconds
+                    self.hint_timer = 2.0
                     print(f"Hint found: Push the box at X:{px}, Y:{py}")
                     break
         else:
-            print("No solution from this state!")
+            print("No solution from this state")
             self.dead_state_active = True
 
     def quit_game(self):
@@ -259,6 +263,9 @@ class Game:
                         last_state = self.history.pop()
                         self.player.x, self.player.y = last_state['player']
                         self.level.boxes = [list(box) for box in last_state['boxes']]
+
+                        self.dead_state_active = False
+                        self.hint_timer = 0
 
     def update(self, time_delta):
         self.menu.update(time_delta)
