@@ -27,3 +27,6 @@ Only 1 box can be push at a time
 Puzzle is solved once every boxes are on the goals
 
 Screenshots:
+
+To do:
+implement IDA*, RBFS and MCTS searchs
