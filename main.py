@@ -17,7 +17,15 @@ class Game:
         
         self.hint_timer = 0
         self.hint_box_pos = None
-        self.red_box_img = pygame.image.load(textures['red_box']).convert_alpha()
+        self.dead_state_active = False
+        raw_red_box = pygame.image.load(textures['red_box']).convert_alpha()       
+        raw_blue_box = pygame.image.load(textures['blue_box']).convert_alpha()
+        self.red_box_img = pygame.transform.scale(raw_red_box, (scaled_tile, scaled_tile))        
+
+        self.blue_box_img = pygame.transform.scale(raw_blue_box, (scaled_tile, scaled_tile))
+        raw_blue_target = pygame.image.load(textures['blue_target']).convert_alpha()
+        self.blue_target_img = pygame.transform.scale(raw_blue_target, (scaled_tile, scaled_tile))
+        
         self.bg_image = pygame.image.load(bg_image_path).convert_alpha()
         self.bg_rect = self.bg_image.get_rect(midbottom=self.screen.get_rect().midbottom)
         self.clock = pygame.time.Clock()
@@ -40,12 +48,6 @@ class Game:
 
         self.hint_timer = 0
         self.hint_box_pos = None
-        try:
-            self.red_box_img = pygame.image.load('assets/graphics/redbox.png').convert_alpha()
-        except Exception as e:
-            print("Could not find redbox.png! Using a red square as fallback.")
-            self.red_box_img = pygame.Surface((scaled_tile, scaled_tile))
-            self.red_box_img.fill((255, 0, 0))
 
         self.current_level_num = 0
         self.moves_count = 0
@@ -84,6 +86,7 @@ class Game:
 
         if key in directions:
             self.hint_timer = 0
+            self.dead_state_active = False
             dx, dy = directions[key]
             old_x, old_y = self.player.x, self.player.y
             old_boxes = [list(box) for box in self.level.boxes] 
@@ -160,6 +163,8 @@ class Game:
 
         result = solver.solve_astar(current_state)
         if result['path']:
+            self.dead_state_active = False
+
             px, py = self.player.x, self.player.y
             boxes = [list(b) for b in self.level.boxes]
             move_map = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
@@ -176,6 +181,7 @@ class Game:
                     break
         else:
             print("No solution from this state!")
+            self.dead_state_active = True
 
     def quit_game(self):
         pygame.quit()
@@ -285,6 +291,15 @@ class Game:
         
         self.map_surface.fill((0, 0, 0, 0))
         self.level.draw(self.map_surface)
+        if getattr(self, 'dead_state_active', False):
+            for row_idx, row in enumerate(self.level.grid):
+                for col_idx, val in enumerate(row):
+                    if val in ['3', '4']: 
+                        self.map_surface.blit(self.blue_target_img, (col_idx * scaled_tile, row_idx * scaled_tile))
+            
+            for box in self.level.boxes:
+                self.map_surface.blit(self.blue_box_img, (box[0] * scaled_tile, box[1] * scaled_tile))
+
         self.player.draw(self.map_surface)
 
         if self.hint_timer > 0 and self.hint_box_pos:
