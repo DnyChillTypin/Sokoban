@@ -25,6 +25,7 @@ textures = {
     'ground_dark': 'assets/graphics/wallsFloors/FloorDark.png',
     'ground_light': 'assets/graphics/wallsFloors/FloorLight.png',
     'box': 'assets/graphics/interactables/BoxYallow.png',
+    'red_box': 'assets/graphics/interactables/BoxRed.png',
     'target': 'assets/graphics/interactables/ButtonUpYallow.png',
     'box_on_target': 'assets/graphics/interactables/BoxGreen.png', 
     'player': 'assets/graphics/ScotterBlue.png',

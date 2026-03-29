@@ -15,6 +15,9 @@ class Game:
         self.screen = pygame.display.set_mode((window_width, window_height))
         pygame.display.set_caption('Sokoban AI')
         
+        self.hint_timer = 0
+        self.hint_box_pos = None
+        self.red_box_img = pygame.image.load(textures['red_box']).convert_alpha()
         self.bg_image = pygame.image.load(bg_image_path).convert_alpha()
         self.bg_rect = self.bg_image.get_rect(midbottom=self.screen.get_rect().midbottom)
         self.clock = pygame.time.Clock()
@@ -34,6 +37,15 @@ class Game:
         self.font_small = pygame.font.Font('assets/PIXY.ttf', 60)  
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
+
+        self.hint_timer = 0
+        self.hint_box_pos = None
+        try:
+            self.red_box_img = pygame.image.load('assets/graphics/redbox.png').convert_alpha()
+        except Exception as e:
+            print("Could not find redbox.png! Using a red square as fallback.")
+            self.red_box_img = pygame.Surface((scaled_tile, scaled_tile))
+            self.red_box_img.fill((255, 0, 0))
 
         self.current_level_num = 0
         self.moves_count = 0
@@ -71,6 +83,7 @@ class Game:
         }
 
         if key in directions:
+            self.hint_timer = 0
             dx, dy = directions[key]
             old_x, old_y = self.player.x, self.player.y
             old_boxes = [list(box) for box in self.level.boxes] 
@@ -111,7 +124,6 @@ class Game:
         print("-" * 95)
         
         for algo in self.menu.selected_algos:
-            # Note: Changed 'Best-FS' to 'BestFS' so it exactly matches your menu spelling!
             if algo == 'BFS': result = solver.solve_bfs(current_state)
             elif algo == 'DFS': result = solver.solve_dfs(current_state)
             elif algo == 'A*': result = solver.solve_astar(current_state)
@@ -140,6 +152,30 @@ class Game:
         
         self.menu.is_playing = False
         self.menu.play_btn.unselect()
+    
+    def execute_hint(self):
+        print("calculating Hint...")
+        solver = SokobanSolver(self.level)
+        current_state = solver.get_initial_state(self.player, self.level)
+
+        result = solver.solve_astar(current_state)
+        if result['path']:
+            px, py = self.player.x, self.player.y
+            boxes = [list(b) for b in self.level.boxes]
+            move_map = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
+
+            for move in result['path']:
+                dx, dy = move_map[move]
+                px += dx
+                py += dy
+                
+                if [px, py] in boxes:
+                    self.hint_box_pos = (px, py)
+                    self.hint_timer = 2.0 # Set the blink timer for exactly 2 seconds
+                    print(f"Hint found: Push the box at X:{px}, Y:{py}")
+                    break
+        else:
+            print("No solution from this state!")
 
     def quit_game(self):
         pygame.quit()
@@ -174,6 +210,9 @@ class Game:
             
             if action == "RUN_SOLVER":
                 self.execute_solvers() 
+
+            if action == "HINT_CLICKED":
+                self.execute_hint()
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
@@ -218,6 +257,11 @@ class Game:
     def update(self, time_delta):
         self.menu.update(time_delta)
         
+        if self.hint_timer > 0:
+            self.hint_timer -= time_delta
+            if self.hint_timer <= 0:
+                self.hint_box_pos = None
+
         if self.is_playing_back:
             current_time = pygame.time.get_ticks()
             if current_time - self.playback_timer > self.playback_speed:
@@ -242,6 +286,14 @@ class Game:
         self.map_surface.fill((0, 0, 0, 0))
         self.level.draw(self.map_surface)
         self.player.draw(self.map_surface)
+
+        if self.hint_timer > 0 and self.hint_box_pos:
+            elapsed = 2.0 - self.hint_timer
+            
+            if (0 <= elapsed < 0.5) or (1.0 <= elapsed < 1.5):
+                px, py = self.hint_box_pos
+                self.map_surface.blit(self.red_box_img, (px * scaled_tile, py * scaled_tile))
+
         self.screen.blit(self.map_surface, self.map_rect)
 
         self.menu.draw(self.screen)
