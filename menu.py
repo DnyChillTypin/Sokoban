@@ -10,6 +10,7 @@ class SokobanMenu:
         self.state = "MAIN"
         
         self.TITLE_GREEN = (0, 255, 127) 
+        self.TITLE_YELLOW = (255, 255, 0)
         self.DARK_SHADOW = (0, 50, 0)
         
         pygame.mixer.init()

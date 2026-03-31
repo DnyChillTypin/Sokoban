@@ -1,11 +1,15 @@
 import pygame
 import sys
 import os
+import time
+import pygame_gui # Thêm lại để dùng cho Level Selection
+
 from settings import *
 from level import Level
 from player import Player
-from GameMenu import GameMenu # <-- FIX: Updated the filename import
+from GameMenu import GameMenu
 from menu import SokobanMenu
+from selectLevels import LevelSelection # Import lại file chọn màn
 from solver import SokobanSolver
 
 class Game:
@@ -19,8 +23,12 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # ADD New Menu State
         self.start_menu = SokobanMenu(self.screen)
+        
+        # --- BỔ SUNG: Khởi tạo Manager và Level Selector từ bản trước ---
+        self.manager = pygame_gui.UIManager((window_width, window_height))
+        self.level_selector = LevelSelection(self.screen, self.manager)
+        
         self.game_state = "START_SCREEN"
 
         self.menu = GameMenu()
@@ -177,19 +185,39 @@ class Game:
         while self.running:
             time_delta = self.clock.tick(fps) / 1000.0
 
-            #Addnew
             if self.game_state == "START_SCREEN":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.quit_game()
-                    res = self.start_menu.handle_events(event)
-
-                    if res == "START_GAME":
-                        self.game_state = "PLAYING"
-                    if res == "QUIT":
+                    menu_action = self.start_menu.handle_events(event)
+                    
+                    # --- CẬP NHẬT: Logic chuyển sang màn hình chọn Level ---
+                    if menu_action == "START_GAME":
+                        self.game_state = "SELECT_LEVEL"
+                    elif menu_action == "QUIT":
                         self.quit_game()
+                
                 self.start_menu.draw(time_delta)
-                pygame.display.update() 
-            elif self.game_state == "PLAYING":       
+                pygame.display.update()
+            
+            # --- BỔ SUNG: Logic trạng thái SELECT_LEVEL từ bản code trước ---
+            elif self.game_state == "SELECT_LEVEL":
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT: self.quit_game()
+                    
+                    action, level = self.level_selector.handle_events(event)
+                    if action == "START":
+                        self.current_level_num = level
+                        self.load_current_level()
+                        self.game_state = "PLAYING"
+                    elif action == "HOME":
+                        self.game_state = "START_SCREEN"
+                
+                self.manager.update(time_delta)
+                self.level_selector.draw()
+                self.manager.draw_ui(self.screen)
+                pygame.display.update()
+
+            elif self.game_state == "PLAYING":
                 self.event()
                 self.update(time_delta)
                 self.draw()
@@ -287,6 +315,7 @@ class Game:
         self.map_surface.fill((0, 0, 0, 0))
         self.level.draw(self.map_surface)
         
+        # Draw Dead State / Targets
         if getattr(self, 'dead_state_active', False):
             for row_idx, row in enumerate(self.level.grid):
                 for col_idx, val in enumerate(row):
@@ -297,6 +326,7 @@ class Game:
 
         self.player.draw(self.map_surface)
         
+        # Draw Hint Box
         if self.hint_timer > 0 and self.hint_box_pos:
             elapsed = 2.0 - self.hint_timer 
             if (0 <= elapsed < 0.5) or (1.0 <= elapsed < 1.5):
@@ -318,3 +348,4 @@ class Game:
 if __name__ == '__main__':
     sokoban = Game()
     sokoban.run()
+    
