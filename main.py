@@ -2,10 +2,13 @@ import pygame
 import sys
 import os
 import time
+import pygame_gui
+
 from settings import *
 from level import Level
 from player import Player
 from GameMenu import GameMenu # <-- FIX: Updated the filename import
+from selectLevels import LevelSelection
 from menu import SokobanMenu
 from solver import SokobanSolver
 
@@ -13,9 +16,11 @@ class Game:
     def __init__(self):
         pygame.init()
 
+        #---Khởi tạo cửa sổ
         self.screen = pygame.display.set_mode((window_width, window_height))
         pygame.display.set_caption('Sokoban AI')
-        
+
+        #---Load Background
         self.bg_image = pygame.image.load(bg_image_path).convert_alpha()
         self.bg_rect = self.bg_image.get_rect(midbottom=self.screen.get_rect().midbottom)
         self.clock = pygame.time.Clock()
@@ -25,8 +30,12 @@ class Game:
         self.start_menu = SokobanMenu(self.screen)
         self.game_state = "START_SCREEN"
 
+        self.manager = pygame_gui.UIManager((window_width, window_height))
+        self.level_selector = LevelSelection(self.screen, self.manager)
+
         self.menu = GameMenu()
-        
+
+        #---AI Solver
         self.solver_results = {}
         self.is_playing_back = False
         self.playback_path = []
@@ -35,7 +44,7 @@ class Game:
         
         # --- NEW: Holds the exact board state from when you press "Run" ---
         self.saved_solver_state = None 
-
+        ### --- Load level
         self.current_level_num = 0
         self.moves_count = 0
         self.load_current_level()
@@ -47,13 +56,15 @@ class Game:
             self.level.player_start_y,
             self.level.images['player']
         )
+        # --- Kích thước map
         self.map_width = self.level.columns * scaled_tile
         self.map_height = self.level.rows * scaled_tile
         self.map_surface = pygame.Surface((self.map_width, self.map_height), pygame.SRCALPHA)
         
         self.game_rect = pygame.Rect(menu_width, 0, game_width, window_height)
         self.map_rect = self.map_surface.get_rect(center=self.game_rect.center)
-        
+
+        # --- Undo
         self.history = []
         self.moves_count = 0
         self.is_playing_back = False 
@@ -63,6 +74,7 @@ class Game:
         self.menu.reset_ai_menu() 
         self.menu.update_moves(self.moves_count, self.current_level_num)
 
+    # --- Xử lý di chuyển
     def handle_movement_input(self, key):
         directions = {
             pygame.K_UP: (0, -1), pygame.K_w: (0, -1),
@@ -89,34 +101,60 @@ class Game:
         pygame.quit()
         sys.exit()
 
+    #--- Game Loop
     def run(self):
         while self.running:
             time_delta = self.clock.tick(fps) / 1000.0
 
-            #Addnew
+            # --- Menu ban đầu
             if self.game_state == "START_SCREEN":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.quit_game()
                     res = self.start_menu.handle_events(event)
 
                     if res == "START_GAME":
-                        self.game_state = "PLAYING"
+                        self.game_state = "SELECT_LEVEL"
                     if res == "QUIT":
                         self.quit_game()
                 self.start_menu.draw(time_delta)
-                pygame.display.update() 
+                pygame.display.update()
+
+            # --- Select Menu
+            elif self.game_state == "SELECT_LEVEL":
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.quit_game()
+
+                    action, level = self.level_selector.handle_events(event)
+
+                    if action == "START":
+                        self.current_level_num = level
+                        self.load_current_level()
+                        self.game_state = "PLAYING"
+                    elif action == "HOME":
+                        self.game_state = "START_SCREEN"
+
+                self.manager.update(time_delta)
+                self.level_selector.draw()
+                self.manager.draw_ui(self.screen)
+                pygame.display.update()
+
+            # --- Game chính ---
             elif self.game_state == "PLAYING":       
                 self.event()
                 self.update(time_delta)
                 self.draw()
 
+    # --- Xử lý event
     def event(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
 
+            # --- Menu AI
             action = self.menu.process_events(event)
-            
+
+            # --- Run solver
             if action == "RUN_SOLVER":
                 print(f"\nExecuting Solver Engine...")
                 
@@ -150,6 +188,7 @@ class Game:
                 
                 self.menu.show_results(self.solver_results)
 
+            # --- Play back
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
                 
@@ -191,10 +230,11 @@ class Game:
                         last_state = self.history.pop()
                         self.player.x, self.player.y = last_state['player']
                         self.level.boxes = [list(box) for box in last_state['boxes']]
-
+    # --- Update
     def update(self, time_delta):
         self.menu.update(time_delta)
-        
+
+        # --- play back AI
         if self.is_playing_back:
             current_time = pygame.time.get_ticks()
             if current_time - self.playback_timer > self.playback_speed:
@@ -205,7 +245,7 @@ class Game:
                     self.playback_timer = current_time
                 else:
                     self.is_playing_back = False 
-
+        # --- Kiểm tra Win
         if self.level.is_completed() and not self.is_playing_back:
             print(f'Level {self.current_level_num} cleared')
             self.current_level_num += 1
@@ -216,7 +256,7 @@ class Game:
             else:
                 print("All levels cleared")
                 self.quit_game()
-
+    # --- vẽ
     def draw(self):
         self.screen.fill((0, 0, 0))
         self.screen.blit(self.bg_image, self.bg_rect)

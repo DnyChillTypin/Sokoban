@@ -1,7 +1,9 @@
+# --- Kích thước tiêu đề
 tile_size = 16
 scale = 5
 scaled_tile = tile_size * scale
 
+# --- Cửa sổ game
 window_width = 1600
 window_height = 900
 fps = 60
@@ -20,6 +22,7 @@ tile_mapping = {
     '4': 'box_on_target'
 }
 
+# --- Hình ảnh
 textures = {
     'ground_dark': 'assets/graphics/wallsFloors/FloorDark.png',
     'ground_light': 'assets/graphics/wallsFloors/FloorLight.png',
