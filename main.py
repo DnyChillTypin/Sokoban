@@ -1,7 +1,6 @@
 import pygame
 import sys
 import os
-import time
 from settings import *
 from level import Level
 from player import Player
@@ -12,11 +11,10 @@ from solver import SokobanSolver
 class Game:
     def __init__(self):
         pygame.init()
-
         self.screen = pygame.display.set_mode((window_width, window_height))
         pygame.display.set_caption('Sokoban AI')
         
-        self.bg_image = pygame.image.load(bg_image_path).convert_alpha()
+        self.bg_image = pygame.image.load(textures['bg_image_path']).convert_alpha()
         self.bg_rect = self.bg_image.get_rect(midbottom=self.screen.get_rect().midbottom)
         self.clock = pygame.time.Clock()
         self.running = True
@@ -26,19 +24,41 @@ class Game:
         self.game_state = "START_SCREEN"
 
         self.menu = GameMenu()
-        
         self.solver_results = {}
+        
+        # Playback Variables
         self.is_playing_back = False
         self.playback_path = []
         self.playback_timer = 0
-        self.playback_speed = 333 
-        
-        # --- NEW: Holds the exact board state from when you press "Run" ---
+        self.playback_speed = 100 
         self.saved_solver_state = None 
+
+        # Hint & Dead State Variables
+        self.hint_timer = 0
+        self.hint_box_pos = None
+        self.dead_state_active = False 
+        
+        self._load_scaled_textures()
+
+        # UI Overlays
+        self.font_large = pygame.font.Font(font_path, 100) 
+        self.font_small = pygame.font.Font(font_path, 60)  
+        self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
+        self.win_overlay.fill((0, 0, 0, 128)) 
 
         self.current_level_num = 0
         self.moves_count = 0
         self.load_current_level()
+
+    def _load_scaled_textures(self):
+        """Helper to scale UI images cleanly"""
+        def scale_img(path):
+            raw = pygame.image.load(path).convert_alpha()
+            return pygame.transform.scale(raw, (scaled_tile, scaled_tile))
+            
+        self.red_box_img = scale_img(textures['red_box'])
+        self.blue_box_img = scale_img(textures['blue_box'])
+        self.blue_target_img = scale_img(textures['blue_target'])
 
     def load_current_level(self):
         self.level = Level(self.current_level_num)
@@ -58,10 +78,16 @@ class Game:
         self.moves_count = 0
         self.is_playing_back = False 
         self.saved_solver_state = None
+        self._reset_hint_state()
         
-        # --- FIX: Clear the old Watch buttons when a new level loads ---
+        self.level_complete_waiting = False
         self.menu.reset_ai_menu() 
         self.menu.update_moves(self.moves_count, self.current_level_num)
+
+    def _reset_hint_state(self):
+        self.dead_state_active = False
+        self.hint_timer = 0
+        self.hint_box_pos = None
 
     def handle_movement_input(self, key):
         directions = {
@@ -72,6 +98,7 @@ class Game:
         }
 
         if key in directions:
+            self._reset_hint_state()
             dx, dy = directions[key]
             old_x, old_y = self.player.x, self.player.y
             old_boxes = [list(box) for box in self.level.boxes] 
@@ -85,9 +112,66 @@ class Game:
             return True 
         return False
 
-    def quit_game(self):
-        pygame.quit()
-        sys.exit()
+    def execute_hint(self):
+        solver = SokobanSolver(self.level)
+        current_state = solver.get_initial_state(self.player, self.level)
+        result = solver.solve_astar(current_state)
+
+        if result['path']:
+            self.dead_state_active = False
+            px, py = self.player.x, self.player.y
+            boxes = [list(b) for b in self.level.boxes]
+            move_map = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
+
+            for move in result['path']:
+                dx, dy = move_map[move]
+                px += dx; py += dy
+                
+                if [px, py] in boxes:
+                    self.hint_box_pos = (px, py)
+                    self.hint_timer = 2.0 
+                    break
+        else:
+            self.dead_state_active = True 
+
+    def execute_solvers(self):
+        if len(self.menu.selected_algos) == 0:
+            self.menu.is_playing = False
+            self.menu.play_btn.unselect()
+            return
+
+        print(f"\n{'='*95}\nExecuting Solver Engine...\n{'-'*95}")
+        self.menu.update(0.016) 
+        self.draw()             
+        
+        self.saved_solver_state = {
+            'player': (self.player.x, self.player.y),
+            'boxes': [list(box) for box in self.level.boxes]
+        }
+        
+        solver = SokobanSolver(self.level)
+        current_state = solver.get_initial_state(self.player, self.level)
+        self.solver_results.clear()
+        
+        print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
+        
+        for algo in self.menu.selected_algos:
+            if algo == 'BFS': result = solver.solve_bfs(current_state)
+            elif algo == 'DFS': result = solver.solve_dfs(current_state)
+            elif algo == 'A*': result = solver.solve_astar(current_state)
+            elif algo == 'BestFS': result = solver.solve_best_first(current_state) 
+                
+            self.solver_results[algo] = result['path']
+            
+            moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
+            print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
+            
+        print(f"{'='*95}\n")
+        
+        self.menu.show_results(self.solver_results)
+        self.menu.is_playing = False
+        self.menu.play_btn.unselect()
+        self.menu.hint_btn.enable()
 
     def run(self):
         while self.running:
@@ -110,76 +194,55 @@ class Game:
                 self.update(time_delta)
                 self.draw()
 
+    def quit_game(self):
+        pygame.quit()
+        sys.exit()
+
     def event(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
 
             action = self.menu.process_events(event)
+
+            if self.level_complete_waiting:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    self.current_level_num += 1
+                    if os.path.exists(f'levels/{self.current_level_num}.txt'):
+                        self.load_current_level()
+                    else:
+                        print("All levels cleared!")
+                        self.quit_game()
+                continue 
             
-            if action == "RUN_SOLVER":
-                print(f"\nExecuting Solver Engine...")
-                
-                # --- NEW: Update UI text and FORCE Pygame to draw it immediately ---
-                self.menu.run_solver_btn.set_text("Running...")
-                self.menu.update(0.016) # Feed it a tiny fake time delta
-                self.draw()             # Force the screen to stamp the update
-                
-                self.saved_solver_state = {
-                    'player': (self.player.x, self.player.y),
-                    'boxes': [list(box) for box in self.level.boxes]
-                }
-                
-                solver = SokobanSolver(self.level)
-                current_state = solver.get_initial_state(self.player, self.level)
-                self.solver_results.clear()
-                
-                # --- NEW: Time each algorithm individually ---
-                for algo in self.menu.selected_algos:
-                    start_time = time.time()
-                    
-                    if algo == 'BFS': 
-                        self.solver_results['BFS'] = solver.solve_bfs(current_state)
-                    elif algo == 'DFS': 
-                        self.solver_results['DFS'] = solver.solve_dfs(current_state)
-                    elif algo == 'A*': 
-                        self.solver_results['A*'] = solver.solve_astar(current_state)
-                        
-                    elapsed_time = time.time() - start_time
-                    print(f"-> {algo} finished in {elapsed_time:.4f} seconds!")
-                
-                self.menu.show_results(self.solver_results)
+            if action == "RUN_SOLVER": self.execute_solvers() 
+            elif action == "PLAY_CLICKED": self.execute_solvers()
+            elif action == "HINT_CLICKED": self.execute_hint()
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
-                
-                # --- FIX: If it deadlocked, clicking the button does nothing ---
-                if self.solver_results[algo] is None:
-                    continue
-                
-                # --- FIX: Snap the board back to the exact moment you pressed Run ---
-                if self.saved_solver_state:
-                    self.player.x, self.player.y = self.saved_solver_state['player']
-                    self.level.boxes = [list(box) for box in self.saved_solver_state['boxes']]
-                
-                self.playback_path = self.solver_results[algo].copy()
-                self.is_playing_back = True
-                self.playback_timer = pygame.time.get_ticks()
-                if self.menu.expanded: self.menu.toggle_expansion() 
+                if self.solver_results[algo]:
+                    if self.saved_solver_state:
+                        self.player.x, self.player.y = self.saved_solver_state['player']
+                        self.level.boxes = [list(box) for box in self.saved_solver_state['boxes']]
+                    
+                    self.playback_path = self.solver_results[algo].copy()
+                    self.is_playing_back = True
+                    self.playback_timer = pygame.time.get_ticks()
+                    if self.menu.expanded: self.menu.toggle_expansion() 
 
             if event.type == pygame.KEYDOWN:
                 if self.is_playing_back:
                     self.is_playing_back = False
+                    self.menu.hint_btn.enable()
                     print("Playback Interrupted!")
 
-                if self.handle_movement_input(event.key):
-                    continue
+                if self.handle_movement_input(event.key): continue
 
                 if event.key == pygame.K_ESCAPE: self.quit_game()
                 elif event.key == pygame.K_r: self.load_current_level()
                 elif event.key == pygame.K_n:
-                    next_level_path = f'levels/{self.current_level_num + 1}.txt'
-                    if os.path.exists(next_level_path):
+                    if os.path.exists(f'levels/{self.current_level_num + 1}.txt'):
                         self.current_level_num += 1
                         self.load_current_level()
                 elif event.key == pygame.K_p:
@@ -191,10 +254,15 @@ class Game:
                         last_state = self.history.pop()
                         self.player.x, self.player.y = last_state['player']
                         self.level.boxes = [list(box) for box in last_state['boxes']]
+                        self._reset_hint_state()
 
     def update(self, time_delta):
         self.menu.update(time_delta)
         
+        if self.hint_timer > 0:
+            self.hint_timer -= time_delta
+            if self.hint_timer <= 0: self.hint_box_pos = None 
+
         if self.is_playing_back:
             current_time = pygame.time.get_ticks()
             if current_time - self.playback_timer > self.playback_speed:
@@ -205,17 +273,12 @@ class Game:
                     self.playback_timer = current_time
                 else:
                     self.is_playing_back = False 
+                    self.menu.hint_btn.enable()
 
-        if self.level.is_completed() and not self.is_playing_back:
-            print(f'Level {self.current_level_num} cleared')
-            self.current_level_num += 1
-
-            next_level_path = f'levels/{self.current_level_num}.txt'
-            if os.path.exists(next_level_path):
-                self.load_current_level()
-            else:
-                print("All levels cleared")
-                self.quit_game()
+        if self.level.is_completed():
+            self.is_playing_back = False 
+            if not self.level_complete_waiting:
+                self.level_complete_waiting = True
 
     def draw(self):
         self.screen.fill((0, 0, 0))
@@ -223,10 +286,33 @@ class Game:
         
         self.map_surface.fill((0, 0, 0, 0))
         self.level.draw(self.map_surface)
-        self.player.draw(self.map_surface)
-        self.screen.blit(self.map_surface, self.map_rect)
+        
+        if getattr(self, 'dead_state_active', False):
+            for row_idx, row in enumerate(self.level.grid):
+                for col_idx, val in enumerate(row):
+                    if val in ['3', '4']: 
+                        self.map_surface.blit(self.blue_target_img, (col_idx * scaled_tile, row_idx * scaled_tile))
+            for box in self.level.boxes:
+                self.map_surface.blit(self.blue_box_img, (box[0] * scaled_tile, box[1] * scaled_tile))
 
+        self.player.draw(self.map_surface)
+        
+        if self.hint_timer > 0 and self.hint_box_pos:
+            elapsed = 2.0 - self.hint_timer 
+            if (0 <= elapsed < 0.5) or (1.0 <= elapsed < 1.5):
+                px, py = self.hint_box_pos
+                self.map_surface.blit(self.red_box_img, (px * scaled_tile, py * scaled_tile))
+
+        self.screen.blit(self.map_surface, self.map_rect)
         self.menu.draw(self.screen)
+        
+        if self.level_complete_waiting:
+            self.screen.blit(self.win_overlay, (0, 0))
+            self.screen.blit(self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)), 
+                             self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)).get_rect(center=(window_width // 2, (window_height // 2) - 40)))
+            self.screen.blit(self.font_small.render("Press SPACE to continue", True, (200, 200, 200)), 
+                             self.font_small.render("Press SPACE to continue", True, (200, 200, 200)).get_rect(center=(window_width // 2, (window_height // 2) + 40)))
+
         pygame.display.update()
 
 if __name__ == '__main__':

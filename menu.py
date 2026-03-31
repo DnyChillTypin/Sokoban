@@ -1,166 +1,172 @@
 import pygame
 import pygame_gui
-import json
 import os
-
-os.environ['SDL_VIDEO_CENTERED'] = '1'
+from settings import *
 
 class SokobanMenu:
     def __init__(self, screen):
-        pygame.mixer.pre_init(44100, -16, 2, 512)
-        pygame.mixer.init()
-        
         self.window = screen
-        self.width, self.height = screen.get_size()
-        self.manager = pygame_gui.UIManager((self.width, self.height))
+        self.manager = pygame_gui.UIManager((window_width, window_height), UI_THEME)
         self.state = "MAIN"
         
-        self.COLORS = {
-            'bg': (15, 25, 45),
-            'title': (255, 215, 0),
-            'btn_normal': (40, 55, 80)
-        }
-
-        self.instr_frames = []
-        self.current_frame = 0
-        self.frame_timer = 0
-        self.load_instr_animation()
-
+        self.TITLE_GREEN = (0, 255, 127) 
+        self.DARK_SHADOW = (0, 50, 0)
+        
+        pygame.mixer.init()
         try:
-            with open("env.json", "r") as f:
-                self.config = json.load(f)
+            self.music = pygame.mixer.Sound('assets/Music.mp3')
+            self.sfx = pygame.mixer.Sound('assets/SoundEffect.wav')
+            self.music_channel = self.music.play(-1)
+            self.is_music_on = True
+            self.is_sfx_on = True
         except:
-            self.config = {"music": "On", "sound": "On", "resolution": "1024x768"}
+            self.is_music_on = self.is_sfx_on = False
 
-        self.play_bg_music()
+        self.bg_pattern = self.create_bg_pattern()
+        self.load_assets()
         self.setup_ui()
 
-    def load_instr_animation(self):
-        path = "assets/instruction_anim/"
-        if os.path.exists(path):
-            files = sorted([f for f in os.listdir(path) if f.endswith('.png')])
-            for f in files:
-                img = pygame.image.load(os.path.join(path, f)).convert_alpha()
-                img = pygame.transform.scale(img, (350, 350))
-                self.instr_frames.append(img)
+    def create_bg_pattern(self):
+        curr_w, curr_h = self.window.get_size()
+        dark_tile = pygame.image.load(textures['menu_dark']).convert_alpha()
+        light_tile = pygame.image.load(textures['menu_light']).convert_alpha()
+        tw, th = dark_tile.get_size()
+        pattern = pygame.Surface((curr_w, curr_h))
+        for y in range(0, curr_h, th):
+            for x in range(0, curr_w, tw):
+                tile = light_tile if ((x // tw) + (y // th)) % 2 == 0 else dark_tile
+                pattern.blit(tile, (x, y))
+        return pattern
 
-    def play_bg_music(self):
-        if self.config.get('music') == "On":
-            music_path = os.path.join("assets", "bg_music.mp3")
-            if os.path.exists(music_path):
-                try:
-                    pygame.mixer.music.load(music_path)
-                    pygame.mixer.music.set_volume(0.4)
-                    pygame.mixer.music.play(-1)
-                except: pass
+    def load_assets(self):
+        try:
+            orig_char = pygame.image.load(textures['player']).convert_alpha()
+            self.char_img = pygame.transform.scale(orig_char, (350, 350))
+            orig_box = pygame.image.load(textures['box_on_target']).convert_alpha()
+            self.box_img = pygame.transform.scale(orig_box, (350, 350))
+            self.box_img = pygame.transform.rotate(self.box_img, -15)
+        except:
+            self.char_img = self.box_img = None
 
     def setup_ui(self):
+        """Tính toán vị trí dựa trên phần trăm hoặc khoảng cách từ cạnh dưới"""
         self.manager.clear_and_reset()
+        curr_w, curr_h = self.window.get_size()
+        self.manager.set_window_resolution((curr_w, curr_h))
         
-        # Kích thước nút cố định nhưng căn lề động
-        btn_w, btn_h = 420, 85 
-        spacing = 100 
+        btn_w, btn_h = 420, 95
+        cx = curr_w // 2 - btn_w // 2
         
         if self.state == "MAIN":
-            # Neo vào tâm X, căn từ trên xuống
-            start_y = self.height // 2 - 100
-            self.play_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - btn_w//2, start_y), (btn_w, btn_h)), text='PLAY', manager=self.manager)
-            self.instr_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - btn_w//2, start_y + spacing), (btn_w, btn_h)), text='INSTRUCTION', manager=self.manager)
-            self.setting_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - btn_w//2, start_y + spacing*2), (btn_w, btn_h)), text='SETTING', manager=self.manager)
-            self.quit_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - btn_w//2, start_y + spacing*3), (btn_w, btn_h)), text='QUIT', manager=self.manager)
+            # Căn giữa theo chiều dọc dựa trên curr_h
+            start_y = curr_h // 2 - 100
+            self.play_btn = self._create_btn(cx, start_y, btn_w, btn_h, "START GAME", "#ai_btn")
+            self.instr_btn = self._create_btn(cx, start_y + 110, btn_w, btn_h, "INSTRUCTION", "#ai_btn")
+            self.setting_btn = self._create_btn(cx, start_y + 220, btn_w, btn_h, "GAME OPTIONS", "#ai_btn")
+            self.quit_btn = self._create_btn(cx, start_y + 330, btn_w, btn_h, "EXIT GAME", "#algo_btn")
 
-        elif self.state == "SETTINGS":
-            center_y = self.height // 2 - 100
-            self.music_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - btn_w//2, center_y), (btn_w, btn_h)), text=f"Music: {self.config['music']}", manager=self.manager)
+        elif self.state == "INSTRUCTION":
+            # Tính toán kích thước hộp văn bản linh hoạt
+            box_w, box_h = int(curr_w * 0.6), int(curr_h * 0.4)
+            box_x = curr_w // 2 - box_w // 2
+            box_y = curr_h // 2 - box_h // 2
             
-            res_list = ["800x600", "1024x768", "Fullscreen"]
-            drop_y = center_y + spacing
-            self.res_dropdown = pygame_gui.elements.UIDropDownMenu(options_list=res_list, starting_option=self.config['resolution'], relative_rect=pygame.Rect((self.width//2 - btn_w//2, drop_y), (btn_w, btn_h)), manager=self.manager)
-            
-            # Nút BACK gần hơn (cách 20px)
-            self.back_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((self.width//2 - 100, drop_y + btn_h + 20), (200, 60)), text='BACK', manager=self.manager)
-
-        elif self.state == "INSTR":
-            box_w, box_h = 850, 480
-            # Giữ box luôn ở giữa màn hình
-            bx = self.width // 2 - box_w // 2
-            by = self.height // 2 - box_h // 2 - 30
-            
-            help_text = "<font color='#FFD700' size=7><b>HOW TO PLAY</b></font><br><br>" \
-                        "<font size=6>" \
-                        "- ARROW KEYS: Move player around<br>" \
-                        "- U KEY: Undo your last move<br>" \
-                        "- R KEY: Reset current level<br>" \
-                        "- ESC/Q: Quit to main menu</font>"
+            # Nội dung hướng dẫn cho người chơi
+            text = ("<font color='#FFFFFF' size=5><b>HƯỚNG DẪN CHƠI:</b><br><br>"
+                    "- <b>Di chuyển:</b> Sử dụng các phím mũi tên hoặc W, A, S, D.<br>"
+                    "- <b>Mục tiêu:</b> Đẩy tất cả các thùng vào vị trí đánh dấu X.<br>"
+                    "- <b>Chơi lại:</b> Nhấn phím <b>R</b> nếu bạn bị kẹt.<br>"
+                    "- <b>Hoàn tác:</b> Nhấn phím <b>Z</b> để lùi lại một bước.<br>"
+                    "- <b>Gợi ý:</b> Nhấn nút <b>HINT</b> để xem AI chỉ cách di chuyển.</font>")
             
             self.help_box = pygame_gui.elements.UITextBox(
-                html_text=help_text, 
-                relative_rect=pygame.Rect((bx, by), (box_w, box_h)), 
-                manager=self.manager)
+                html_text=text, 
+                manager=self.manager,
+                relative_rect=pygame.Rect((box_x, box_y), (box_w, box_h)))
             
-            self.anim_rect = pygame.Rect(bx + box_w - 360, by + 100, 320, 320)
+            # Nút BACK luôn nằm dưới hộp văn bản và cách cạnh dưới an toàn
+            self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
+
+        elif self.state == "OPTIONS":
+            # Đẩy các option lên cao hơn
+            self.music_btn = self._create_btn(cx, 280, btn_w, btn_h, 
+                                            f"MUSIC: {'ON' if self.is_music_on else 'OFF'}", "#ai_btn")
+            self.sfx_btn = self._create_btn(cx, 385, btn_w, btn_h, 
+                                           f"SOUND FX: {'ON' if self.is_sfx_on else 'OFF'}", "#ai_btn")
             
-            # Nút GOT IT gần sát box (cách 10px)
-            self.back_btn = pygame_gui.elements.UIButton(
-                relative_rect=pygame.Rect((self.width // 2 - 100, by + box_h + 10), (200, 60)), 
-                text='GOT IT!', manager=self.manager)
+            self.res_label = pygame_gui.elements.UILabel(
+                relative_rect=pygame.Rect((cx, 500), (btn_w, 40)),
+                text="RESOLUTION", manager=self.manager, object_id="#ai_btn")
+            
+            self.res_drop = pygame_gui.elements.UIDropDownMenu(
+                options_list=["1600x900", "1280x720", "Fullscreen"],
+                starting_option=f"{curr_w}x{curr_h}" if not (self.window.get_flags() & pygame.FULLSCREEN) else "Fullscreen",
+                relative_rect=pygame.Rect((cx, 550), (btn_w, 50)), manager=self.manager)
+            
+            # QUAN TRỌNG: Nút BACK luôn cách cạnh dưới 120 pixel
+            self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
+
+    def _create_btn(self, x, y, w, h, text, obj_id):
+        return pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((x, y), (w, h)),
+            text=text, manager=self.manager, object_id=obj_id)
+
+    def change_resolution(self, resolution_str):
+        if resolution_str == "Fullscreen":
+            pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            w, h = map(int, resolution_str.split('x'))
+            os.environ['SDL_VIDEO_CENTERED'] = '1' # Đảm bảo ra giữa màn hình
+            pygame.display.set_mode((w, h))
+        
+        self.bg_pattern = self.create_bg_pattern()
+        self.setup_ui()
 
     def handle_events(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if self.is_sfx_on: self.sfx.play()
+            ui = event.ui_element
             if self.state == "MAIN":
-                if event.ui_element == self.play_btn: return "START_GAME"
-                if event.ui_element == self.instr_btn: self.state = "INSTR"; self.setup_ui()
-                if event.ui_element == self.setting_btn: self.state = "SETTINGS"; self.setup_ui()
-                if event.ui_element == self.quit_btn: return "QUIT"
-            if event.ui_element == self.back_btn:
-                self.save_config(); self.state = "MAIN"; self.setup_ui()
-            elif self.state == "SETTINGS" and event.ui_element == self.music_btn:
-                self.config['music'] = "Off" if self.config['music'] == "On" else "On"
-                if self.config['music'] == "Off": pygame.mixer.music.pause()
-                else: pygame.mixer.music.unpause() if pygame.mixer.music.get_busy() else self.play_bg_music()
-                self.music_btn.set_text(f"Music: {self.config['music']}")
-        
+                if ui == self.play_btn: return "START_GAME"
+                if ui == self.instr_btn: self.state = "INSTRUCTION"; self.setup_ui()
+                if ui == self.setting_btn: self.state = "OPTIONS"; self.setup_ui()
+                if ui == self.quit_btn: return "QUIT"
+            elif ui == getattr(self, 'back_btn', None):
+                self.state = "MAIN"; self.setup_ui()
+            elif self.state == "OPTIONS":
+                if ui == self.music_btn:
+                    self.is_music_on = not self.is_music_on
+                    if self.is_music_on: self.music_channel.unpause()
+                    else: self.music_channel.pause()
+                    self.setup_ui()
+                if ui == self.sfx_btn:
+                    self.is_sfx_on = not self.is_sfx_on
+                    self.setup_ui()
+
         if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-            if event.ui_element == self.res_dropdown:
-                self.config['resolution'] = event.text
-                self.apply_video_settings()
-        
+            if event.ui_element == self.res_drop:
+                self.change_resolution(event.text)
+
         self.manager.process_events(event)
         return None
 
-    def apply_video_settings(self):
-        if self.config['resolution'] == "Fullscreen":
-            info = pygame.display.Info()
-            new_res = (info.current_w, info.current_h)
-            flags = pygame.FULLSCREEN
-        else:
-            new_res = tuple(map(int, self.config['resolution'].split('x')))
-            flags = pygame.RESIZABLE 
-        
-        self.window = pygame.display.set_mode(new_res, flags)
-        self.width, self.height = new_res
-        self.manager.set_window_resolution(new_res)
-        pygame.display.set_caption("Sokoban Game")
-        self.setup_ui()
-
     def draw(self, time_delta):
-        self.window.fill(self.COLORS['bg']) 
-        if self.state == "MAIN":
-            title_font = pygame.font.SysFont("Verdana", 90, bold=True)
-            title_surf = title_font.render("SOKOBAN", True, self.COLORS['title'])
-            self.window.blit(title_surf, title_surf.get_rect(center=(self.width // 2, self.height // 2 - 220)))
+        self.window.blit(self.bg_pattern, (0, 0))
+        curr_w, curr_h = self.window.get_size()
         
-        elif self.state == "INSTR":
-            if self.instr_frames:
-                self.frame_timer += time_delta
-                if self.frame_timer > 0.1:
-                    self.current_frame = (self.current_frame + 1) % len(self.instr_frames)
-                    self.frame_timer = 0
-                self.window.blit(self.instr_frames[self.current_frame], self.anim_rect)
+        font_title = pygame.font.Font(font_path, int(130 * (curr_h/900))) # Co giãn font theo màn hình
+        title_surf = font_title.render("SOKOBAN", True, self.TITLE_GREEN)
+        title_rect = title_surf.get_rect(center=(curr_w // 2, curr_h * 0.2)) # Tiêu đề luôn ở 20% chiều cao
+        shadow = font_title.render("SOKOBAN", True, self.DARK_SHADOW)
+        self.window.blit(shadow, (title_rect.x + 6, title_rect.y + 6))
+        self.window.blit(title_surf, title_rect)
+
+        if self.state == "MAIN":
+            if self.char_img: 
+                # Icon tự động lùi ra xa nếu màn hình hẹp
+                self.window.blit(self.char_img, (curr_w * 0.1, curr_h * 0.4))
+            if self.box_img: 
+                self.window.blit(self.box_img, (curr_w * 0.7, curr_h * 0.4))
         
         self.manager.update(time_delta)
         self.manager.draw_ui(self.window)
-
-    def save_config(self):
-        with open("env.json", "w") as f:
-            json.dump(self.config, f)
