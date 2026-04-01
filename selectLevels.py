@@ -1,0 +1,152 @@
+import pygame
+import pygame_gui
+import os
+from level import Level
+from settings import *
+
+
+class LevelSelection:
+    def __init__(self, screen, manager):
+        self.screen = screen
+        self.manager = pygame_gui.UIManager(
+            (window_width, window_height), UI_THEME
+        )
+        self.width, self.height = screen.get_size()
+
+        self.font = pygame.font.SysFont(font_path, 24)
+        self.bg_pattern = self.create_bg_pattern()
+
+        self.dark_overlay = pygame.Surface((self.width, self.height))
+        self.dark_overlay.fill((0, 0, 0))
+        self.dark_overlay.set_alpha(150)
+
+        self.current_level = 1
+        self.selected_level = None
+
+        self.level_cache = {}
+
+        self._setup_ui()
+        self._load_level_preview()
+
+    def _setup_ui(self):
+        margin = 50
+
+        self.home_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((40, 40), (420, 95)),
+            text='HOME',
+            manager=self.manager,
+            object_id="#ai_btn"
+        )
+
+        self.left_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((margin, window_height // 2 - 40), (80, 150)),
+            text='', manager=self.manager,
+            object_id="#left_btn"
+        )
+
+        self.right_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((window_width - margin - 80, window_height // 2 - 40), (80, 150)),
+            text='', manager=self.manager,
+            object_id="#right_btn"
+        )
+
+    def create_bg_pattern(self):
+        curr_w, curr_h = self.screen.get_size()
+        dark_tile = pygame.image.load(textures['menu_dark']).convert_alpha()
+        light_tile = pygame.image.load(textures['menu_light']).convert_alpha()
+        tw, th = dark_tile.get_size()
+
+        pattern = pygame.Surface((curr_w, curr_h))
+
+        for y in range(0, curr_h, th):
+            for x in range(0, curr_w, tw):
+                tile = light_tile if ((x // tw) + (y // th)) % 2 == 0 else dark_tile
+                pattern.blit(tile, (x, y))
+
+        return pattern
+
+    def _load_level_preview(self):
+        if self.current_level not in self.level_cache:
+            if not os.path.exists(f"levels/{self.current_level}.txt"):
+                self.current_level = 1
+
+            if self.current_level not in self.level_cache:
+                self.level_cache[self.current_level] = Level(self.current_level)
+
+            self.level_cache[self.current_level] = Level(self.current_level)
+
+        level = self.level_cache[self.current_level]
+
+        map_width = level.columns * scaled_tile
+        map_height = level.rows * scaled_tile
+
+        surface = pygame.Surface((map_width, map_height), pygame.SRCALPHA)
+        level.draw(surface)
+
+        max_display_width = 700
+        aspect_ratio = map_height / map_width
+
+        preview_w = max_display_width
+        preview_h = int(max_display_width * aspect_ratio)
+
+        if preview_h > 500:
+            preview_h = 500
+            preview_w = int(preview_h / aspect_ratio)
+
+        self.preview_img = pygame.transform.smoothscale(
+            surface, (preview_w, preview_h)
+        )
+
+        self.preview_rect = self.preview_img.get_rect(
+            center=(self.width // 2, self.height // 2+30)
+        )
+
+    def handle_events(self, event):
+        self.manager.process_events(event)
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                mouse_pos = event.pos
+                if self.preview_rect.collidepoint(mouse_pos):
+                    return "START", self.current_level
+
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+
+            if event.ui_element == self.left_btn:
+                self.current_level = max(1, self.current_level - 1)
+                self._load_level_preview()
+
+            elif event.ui_element == self.right_btn:
+                self.current_level += 1
+                self._load_level_preview()
+
+            elif event.ui_element == self.home_btn:
+                return "HOME", self.current_level
+        return None, None
+
+    def draw(self):
+        self.screen.blit(self.bg_pattern, (0, 0))
+
+        self.screen.blit(self.dark_overlay, (0, 0))
+
+        self.screen.blit(self.preview_img, self.preview_rect)
+
+        font = pygame.font.Font(font_path, 80)
+
+        txt = font.render(
+            f"LEVEL {self.current_level}", True, (0, 255, 127)
+        )
+
+        shadow = font.render(
+            f"LEVEL {self.current_level}", True, (0, 50, 0)
+        )
+
+        level_x = self.preview_rect.centerx - txt.get_width() // 2
+        level_y = self.preview_rect.top - 80
+
+        self.screen.blit(shadow, (level_x + 5, level_y + 5))
+
+        self.screen.blit(txt, (level_x, level_y))
+
+        self.manager.update(0.016)
+        self.manager.draw_ui(self.screen)
