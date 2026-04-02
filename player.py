@@ -5,9 +5,16 @@ class Player:
     def __init__(self, x, y, image):
         self.x = x
         self.y = y
-        self.image = image
+        self.image_right =image
+        self.image_left = pygame.transform.flip(image, True, False)
+        self.image = self.image_right
 
     def move(self, dx, dy, level):
+        if dx > 0:
+            self.image = self.image_right
+        elif dx < 0:
+            self.image = self.image_left
+            
         target_x = self.x + dx
         target_y = self.y + dy
 
