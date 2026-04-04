@@ -128,18 +128,26 @@
     },
     "#left_btn": {
         "images": {
-            "normal_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"},
-            "hovered_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"},
-            "active_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"},
-            "selected_image": {"path": "assets/graphics/Buttons/ExpandBtnDown3x.png"}
+            "normal_image": {"path": "assets/graphics/Buttons/TallWhitePreBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/TallWhitePreBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/TallWhitePreBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/TallWhitePreBtnDown5x.png"}
         }
     },
     "#right_btn": {
         "images": {
-            "normal_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"},
-            "hovered_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"},
-            "active_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"},
-            "selected_image": {"path": "assets/graphics/Buttons/ExpandBtnUp3x.png"}
+            "normal_image": {"path": "assets/graphics/Buttons/TallWhiteNextBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/TallWhiteNextBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/TallWhiteNextBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/TallWhiteNextBtnDown5x.png"}
+        }
+    },
+    "#home_btn": {
+        "images": {
+            "normal_image": {"path": "assets/graphics/Buttons/HomeBtnUp5x.png"},
+            "hovered_image": {"path": "assets/graphics/Buttons/HomeBtnUp5x.png"},
+            "active_image": {"path": "assets/graphics/Buttons/HomeBtnDown5x.png"},
+            "selected_image": {"path": "assets/graphics/Buttons/HomeBtnDown5x.png"}
         }
     }
 }

@@ -29,23 +29,27 @@ class LevelSelection:
         self._load_level_preview()
 
     def _setup_ui(self):
-        margin = 50
+        btn_w = 80
+        btn_h = 250
+        margin = 70
+
+        center_y = (window_height - btn_h) // 2
 
         self.home_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect((40, 40), (420, 95)),
-            text='HOME',
+            relative_rect=pygame.Rect((90, 60), (80, 80)),
+            text='',
             manager=self.manager,
-            object_id="#ai_btn"
+            object_id="#home_btn"
         )
 
         self.left_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect((margin, window_height // 2 - 40), (80, 150)),
+            relative_rect=pygame.Rect((margin, center_y), (btn_w, btn_h)),
             text='', manager=self.manager,
             object_id="#left_btn"
         )
 
         self.right_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect((window_width - margin - 80, window_height // 2 - 40), (80, 150)),
+            relative_rect=pygame.Rect((window_width - margin - btn_w, center_y), (btn_w, btn_h)),
             text='', manager=self.manager,
             object_id="#right_btn"
         )
@@ -83,19 +87,16 @@ class LevelSelection:
         surface = pygame.Surface((map_width, map_height), pygame.SRCALPHA)
         level.draw(surface)
 
-        max_display_width = 700
-        aspect_ratio = map_height / map_width
+        DESIRED_TILE = 60
 
-        preview_w = max_display_width
-        preview_h = int(max_display_width * aspect_ratio)
+        current_tile = scaled_tile
 
-        if preview_h > 500:
-            preview_h = 500
-            preview_w = int(preview_h / aspect_ratio)
+        scale = DESIRED_TILE / current_tile
 
-        self.preview_img = pygame.transform.smoothscale(
-            surface, (preview_w, preview_h)
-        )
+        preview_w = int(map_width * scale)
+        preview_h = int(map_height * scale)
+
+        self.preview_img = pygame.transform.smoothscale(surface, (preview_w, preview_h))
 
         self.preview_rect = self.preview_img.get_rect(
             center=(self.width // 2, self.height // 2+30)
