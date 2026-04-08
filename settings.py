@@ -1,7 +1,9 @@
+# --- Kích thước tiêu đề
 tile_size = 16
 scale = 5
 scaled_tile = tile_size * scale
 
+# --- Cửa sổ game
 window_width = 1600
 window_height = 900
 fps = 60
@@ -24,6 +26,7 @@ tile_mapping = {
     '6': 'bomb'
 }
 
+# --- Hình ảnh
 textures = {
     # Environment
     'bg_image_path': 'assets/graphics/WallpaperScifi.png',
