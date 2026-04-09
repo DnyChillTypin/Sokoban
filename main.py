@@ -54,7 +54,12 @@ class Game:
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
 
-        self.current_level_num = 0
+        if os.path.exists('levels/test.txt'):
+            self.current_level_num = 'test'
+            print("Notice: Booting in Sandbox Mode (test.txt found!)")
+        else:
+            self.current_level_num = 0
+
         self.moves_count = 0
         self.load_current_level()
 
@@ -235,7 +240,12 @@ class Game:
 
             if self.level_complete_waiting:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    self.current_level_num += 1
+                    
+                    if self.current_level_num == 'test':
+                        self.current_level_num = 0
+                    else:
+                        self.current_level_num += 1
+
                     if os.path.exists(f'levels/{self.current_level_num}.txt'):
                         self.load_current_level()
                     else:
@@ -269,14 +279,17 @@ class Game:
 
                 if event.key == pygame.K_ESCAPE: self.quit_game()
                 elif event.key == pygame.K_r: self.load_current_level()
+                
                 elif event.key == pygame.K_n:
-                    if os.path.exists(f'levels/{self.current_level_num + 1}.txt'):
-                        self.current_level_num += 1
+                    next_level = 0 if self.current_level_num == 'test' else self.current_level_num + 1
+                    if os.path.exists(f'levels/{next_level}.txt'):
+                        self.current_level_num = next_level
                         self.load_current_level()
                 elif event.key == pygame.K_p:
-                    if self.current_level_num > 0:
+                    if self.current_level_num != 'test' and self.current_level_num > 0:
                         self.current_level_num -= 1
                         self.load_current_level()
+
                 elif event.key == pygame.K_z:
                     if len(self.history) > 0:
                         last_state = self.history.pop()
