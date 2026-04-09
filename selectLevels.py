@@ -129,6 +129,12 @@ class LevelSelection:
             preview_h
         )
 
+    def shift_focus(self, offset):
+        old_idx = self.current_level_idx
+        self.current_level_idx = max(0, min(len(self.available_levels) - 1, self.current_level_idx + offset))
+        if old_idx != self.current_level_idx:
+            self._load_level_preview()
+
     def handle_events(self, event):
         self.manager.process_events(event)
 
@@ -138,16 +144,22 @@ class LevelSelection:
                 if self.preview_rect.collidepoint(mouse_pos):
                     return "START", self.current_level
 
+        if event.type == pygame.KEYDOWN:
+            nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
+            nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
+            
+            if nav_left:
+                self.shift_focus(-1)
+            elif nav_right:
+                self.shift_focus(1)
+            elif event.key == pygame.K_RETURN:
+                return "START", self.current_level
+
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-
             if event.ui_element == self.left_btn:
-                self.current_level_idx = max(0, self.current_level_idx - 1)
-                self._load_level_preview()
-
+                self.shift_focus(-1)
             elif event.ui_element == self.right_btn:
-                self.current_level_idx = min(len(self.available_levels) - 1, self.current_level_idx + 1)
-                self._load_level_preview()
-
+                self.shift_focus(1)
             elif event.ui_element == self.home_btn:
                 return "HOME", self.current_level
         return None, None
