@@ -12,6 +12,15 @@ class GameMenu:
         
         self.algo_results = {algo: None for algo in ALGORITHMS}
         
+        from radar_chart import RadarChart
+        color_map = {
+            'A*': (255, 50, 50),     # Red
+            'BFS': (50, 50, 255),    # Blue
+            'DFS': (50, 255, 50),    # Green
+            'BestFS': (255, 255, 50) # Yellow
+        }
+        self.radar_chart = RadarChart(center=(640, 450), radius=180, font_size=20, color_map=color_map)
+        
         # Load assets using settings.py
         self.custom_font = pygame.font.Font(font_path, 24)
         self.coffee_icon = pygame.image.load(textures['coffee_icon']).convert_alpha()
@@ -31,7 +40,7 @@ class GameMenu:
         light_tile = pygame.image.load(textures['menu_light']).convert_alpha()
         
         tile_w, tile_h = dark_tile.get_size()
-        max_width = window_width // 2
+        max_width = (window_width // 2) + 160
         
         self.bg_pattern = pygame.Surface((max_width, window_height)) 
         
@@ -65,6 +74,11 @@ class GameMenu:
         self.move_display = self._create_btn(btn_x, move_y, btn_w, btn_h, '#move_panel')
         self.ai_toggle_btn = self._create_btn(btn_x, ai_y, btn_w, btn_h, '#ai_btn')
         self.hint_btn = self._create_btn(btn_x, hint_y, btn_w, btn_h, '#hint_btn')
+        
+        undo_y = hint_y + (btn_h * 2) + 20
+        reset_y = undo_y + btn_h + 10
+        self.undo_btn = self._create_btn(btn_x, undo_y, btn_w, btn_h, '#ai_btn')
+        self.reset_btn = self._create_btn(btn_x, reset_y, btn_w, btn_h, '#ai_btn')
         self.play_btn = self._create_btn(play_x, ai_y, play_w, btn_h, '#play_btn', visible=False)
 
         # Dropdown Background
@@ -94,7 +108,7 @@ class GameMenu:
 
     def toggle_expansion(self):
         self.expanded = not self.expanded
-        target_width = (window_width // 2) if self.expanded else menu_width
+        target_width = ((window_width // 2) + 160) if self.expanded else menu_width
 
         self.panel.set_dimensions((target_width, window_height))
         
@@ -143,11 +157,14 @@ class GameMenu:
         self.hint_btn.enable() 
         for res_btn in self.result_btns.values(): res_btn.hide()
 
-    def show_results(self, results_dict):
+    def show_results(self, results_dict, full_metrics=None):
         for algo, path in results_dict.items():
             self.algo_results[algo] = len(path) if path is not None else "FAIL"
             if self.ai_dropdown_open and algo in self.selected_algos:
                 self.result_btns[algo].show()
+        
+        if full_metrics:
+            self.radar_chart.update_data(full_metrics)
 
     def process_events(self, event):
         self.manager.process_events(event)
@@ -167,6 +184,12 @@ class GameMenu:
             
             elif ui == self.hint_btn:
                 return "HINT_CLICKED"
+                
+            elif ui == self.undo_btn:
+                return "UNDO_CLICKED"
+                
+            elif ui == self.reset_btn:
+                return "RESET_CLICKED"
                 
             elif ui in self.result_btns.values():
                 clicked_algo = next((name for name, btn in self.result_btns.items() if btn == ui), None)
@@ -203,8 +226,11 @@ class GameMenu:
         if self.expanded:
             surface.blit(self.dim_surf, (0, 0))
             
-        current_width = (window_width // 2) if self.expanded else menu_width
+        current_width = ((window_width // 2) + 160) if self.expanded else menu_width
         surface.blit(self.bg_pattern, (0, 0), area=pygame.Rect(0, 0, current_width, window_height))
+            
+        if self.expanded:
+            self.radar_chart.draw(surface)
             
         self.manager.draw_ui(surface)
         mouse_down = pygame.mouse.get_pressed()[0]
@@ -230,6 +256,9 @@ class GameMenu:
                 surface.blit(self.coffee_icon, icon_rect)
             else:
                 draw_text("Hint", self.hint_btn, 32, (0, 0, 0))
+                
+        draw_text("Undo", self.undo_btn, 32, (0, 0, 0))
+        draw_text("Reset", self.reset_btn, 32, (0, 0, 0))
         
         # Dropdown Items
         if self.ai_dropdown_open:

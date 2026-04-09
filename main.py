@@ -165,6 +165,7 @@ class Game:
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
         self.solver_results.clear()
+        full_metrics = {}
         
         print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
         
@@ -175,13 +176,14 @@ class Game:
             elif algo == 'BestFS': result = solver.solve_best_first(current_state) 
                 
             self.solver_results[algo] = result['path']
+            full_metrics[algo] = result
             
             moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
             print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
             
         print(f"{'='*95}\n")
         
-        self.menu.show_results(self.solver_results)
+        self.menu.show_results(self.solver_results, full_metrics)
         self.menu.is_playing = False
         self.menu.play_btn.unselect()
         self.menu.hint_btn.enable()
@@ -300,6 +302,14 @@ class Game:
             if action == "RUN_SOLVER": self.execute_solvers() 
             elif action == "PLAY_CLICKED": self.execute_solvers()
             elif action == "HINT_CLICKED": self.execute_hint()
+            elif action == "UNDO_CLICKED":
+                if len(self.history) > 0:
+                    last_state = self.history.pop()
+                    self.player.x, self.player.y = last_state['player']
+                    self.level.boxes = [list(box) for box in last_state['boxes']]
+                    self._reset_hint_state()
+            elif action == "RESET_CLICKED": 
+                self.load_current_level()
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
