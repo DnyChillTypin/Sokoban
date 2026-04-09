@@ -131,7 +131,8 @@ class GameMenu:
             self.ai_toggle_btn.select() 
             self.play_btn.show()
             self.hint_btn.hide() 
-            
+            self.undo_btn.hide()
+            self.reset_btn.hide()            
             for name, btn in self.algo_btns.items():
                 btn.show()
                 if name in self.selected_algos:
@@ -143,7 +144,8 @@ class GameMenu:
             self.ai_toggle_btn.unselect() 
             self.play_btn.hide()
             self.hint_btn.show()
-            
+            self.undo_btn.show()
+            self.reset_btn.show()            
             for btn in self.algo_btns.values(): btn.hide()
             for res_btn in self.result_btns.values(): res_btn.hide()
 
@@ -257,8 +259,10 @@ class GameMenu:
             else:
                 draw_text("Hint", self.hint_btn, 32, (0, 0, 0))
                 
-        draw_text("Undo", self.undo_btn, 32, (0, 0, 0))
-        draw_text("Reset", self.reset_btn, 32, (0, 0, 0))
+        if self.undo_btn.visible:
+            draw_text("Undo", self.undo_btn, 32, (0, 0, 0))
+        if self.reset_btn.visible:
+            draw_text("Reset", self.reset_btn, 32, (0, 0, 0))
         
         # Dropdown Items
         if self.ai_dropdown_open:
