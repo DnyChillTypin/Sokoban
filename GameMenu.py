@@ -19,7 +19,7 @@ class GameMenu:
             'DFS': (50, 255, 50),    # Green
             'BestFS': (255, 255, 50) # Yellow
         }
-        self.radar_chart = RadarChart(center=(640, 450), radius=180, font_size=20, color_map=color_map)
+        self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
         
         # Load assets using settings.py
         self.custom_font = pygame.font.Font(font_path, 24)
