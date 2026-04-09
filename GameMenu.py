@@ -14,10 +14,11 @@ class GameMenu:
         
         from radar_chart import RadarChart
         color_map = {
-            'A*': (255, 50, 50),     # Red
-            'BFS': (50, 50, 255),    # Blue
-            'DFS': (50, 255, 50),    # Green
-            'BestFS': (255, 255, 50) # Yellow
+            'A*': (255, 50, 50),       # Red
+            'BFS': (50, 50, 255),      # Blue
+            'DFS': (50, 255, 50),      # Green
+            'BestFS': (255, 255, 50),  # Yellow
+            'Dijkstra': (255, 130, 0)  # Orange
         }
         self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
         
@@ -157,6 +158,7 @@ class GameMenu:
         self.is_playing = False
         self.play_btn.unselect()
         self.hint_btn.enable() 
+        self.radar_chart.update_data({}) # Clear chart snapshots
         for res_btn in self.result_btns.values(): res_btn.hide()
 
     def show_results(self, results_dict, full_metrics=None):
@@ -208,7 +210,6 @@ class GameMenu:
 
             elif ui in self.algo_btns.values():
                 clicked_algo = next((name for name, btn in self.algo_btns.items() if btn == ui), None)
-                if clicked_algo == 'Dijkstra': return None
                 
                 if clicked_algo in self.selected_algos:
                     self.selected_algos.remove(clicked_algo)
@@ -267,9 +268,10 @@ class GameMenu:
         # Dropdown Items
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
-                color = (150, 150, 150) if algo == 'Dijkstra' else (255, 255, 255)
+                color = (255, 255, 255)
                 y_offset = 37 if algo in self.selected_algos else 32
-                draw_text(algo, btn, y_offset, color)
+                display_name = "A*" if algo.lower() == "a*" else algo.upper()
+                draw_text(display_name, btn, y_offset, color)
                 
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:

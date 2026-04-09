@@ -73,13 +73,6 @@ class RadarChart:
         surf_h = int(self.radius * 3)
         poly_surface = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
         poly_center = (surf_w // 2, surf_h // 2)
-
-        legend_start_y = cy + self.radius + 60
-        # Count valid algos for centering legend
-        valid_algos = [a for a, m in self.data_snapshots.items() if m is not None and isinstance(m, dict)]
-        legend_start_x = cx - (len(valid_algos) * 100) // 2
-        legend_idx = 0
-
         for algo, metrics in self.data_snapshots.items():
             if metrics is None or not isinstance(metrics, dict):
                 continue
@@ -102,25 +95,46 @@ class RadarChart:
                 # To ensure proper alpha blending in Pygame, draw each poly to its own surf
                 algo_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
                 
-                # Translucency setup
-                fill_color = (*color, 120) # (R, G, B, A) - increased opacity
-                edge_color = (*color, 255)
+                # Translucency setup (Wireframe focus)
+                fill_color = (*color, 30) # Very faint fill for footprint
+                edge_color = (*color, 255) # Fully vibrant edge
                 
                 pygame.draw.polygon(algo_surf, fill_color, poly_points)
-                pygame.draw.polygon(algo_surf, edge_color, poly_points, 2)
+                pygame.draw.polygon(algo_surf, edge_color, poly_points, 3) # Thicker 3px edge
                 
                 # Blit to the collective poly surface
                 poly_surface.blit(algo_surf, (0, 0))
 
-            # Draw legend entry directly on main surface
-            lx = legend_start_x + (legend_idx * 100)
-            ly = legend_start_y
-            pygame.draw.rect(surface, color, (lx, ly, 20, 20))
-            
-            txt_surf = self.font.render(algo, True, (255, 255, 255))
-            surface.blit(txt_surf, (lx + 30, ly))
-            
-            legend_idx += 1
+        # --- LEGEND REFACTOR: Multi-line Centered Layout ---
+        row1_keys = ['BFS', 'DFS', 'BestFS']
+        row2_keys = ['Dijkstra', 'A*']
+        
+        # Helper to get active algos for a row
+        get_active = lambda keys: [(k, self.data_snapshots[k]) for k in keys if k in self.data_snapshots and isinstance(self.data_snapshots[k], dict)]
+        
+        row1_algos = get_active(row1_keys)
+        row2_algos = get_active(row2_keys)
+        
+        spacing = 160
+        legend_start_y = cy + self.radius + 60
+        
+        def draw_row(algos, start_y):
+            row_width = (len(algos) - 1) * spacing + 100 # Approx width
+            row_start_x = cx - row_width // 2
+            for i, (algo, _) in enumerate(algos):
+                color = self.color_map.get(algo, (255, 255, 255))
+                lx = row_start_x + (i * spacing)
+                ly = start_y
+                pygame.draw.rect(surface, color, (lx, ly, 20, 20))
+                
+                display_name = algo.upper() if algo != 'A*' else 'A*' # Ensure star is preserved
+                txt_surf = self.font.render(display_name, True, (255, 255, 255))
+                surface.blit(txt_surf, (lx + 30, ly))
+
+        if row1_algos:
+            draw_row(row1_algos, legend_start_y)
+        if row2_algos:
+            draw_row(row2_algos, legend_start_y + 40)
 
         # Blit the accumulated alpha surface back to the main surface
         top_left_x = cx - poly_center[0]

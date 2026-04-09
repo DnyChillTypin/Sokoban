@@ -173,7 +173,8 @@ class Game:
             if algo == 'BFS': result = solver.solve_bfs(current_state)
             elif algo == 'DFS': result = solver.solve_dfs(current_state)
             elif algo == 'A*': result = solver.solve_astar(current_state)
-            elif algo == 'BestFS': result = solver.solve_best_first(current_state) 
+            elif algo == 'BestFS': result = solver.solve_best_first(current_state)
+            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state)
                 
             self.solver_results[algo] = result['path']
             full_metrics[algo] = result

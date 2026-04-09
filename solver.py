@@ -2,6 +2,7 @@ import collections
 import heapq
 import time
 import pygame
+import sys
 
 class SokobanSolver:
     def __init__(self, level):
@@ -157,6 +158,18 @@ class SokobanSolver:
                     min_dist = d
             self.nearest_distances[pos] = min_dist
             self.exact_distances[pos] = min_dist  # backward compat
+            
+    def _update_spinner(self, iterations, algo_name):
+        if iterations % 1000 == 0:
+            chars = ['|', '/', '-', '\\']
+            char = chars[(iterations // 1000) % 4]
+            sys.stdout.write(f"\r  Crunching {algo_name}... [{char}]")
+            sys.stdout.flush()
+            pygame.event.pump()
+
+    def _clear_spinner(self):
+        sys.stdout.write("\r" + " " * 50 + "\r")
+        sys.stdout.flush()
 
     def heuristic(self, state):
         """
@@ -249,14 +262,18 @@ class SokobanSolver:
         
         while queue:
             iterations += 1
-            if iterations % 5000 == 0: pygame.event.pump()
-            if time.time() - start_time > 120.0: return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+            self._update_spinner(iterations, "BFS")
+            if time.time() - start_time > 120.0: 
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(queue))
             state, path, pushes = queue.popleft()
             nodes_visited += 1
             
-            if self.is_goal_state(state): return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+            if self.is_goal_state(state): 
+                self._clear_spinner()
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
@@ -274,14 +291,18 @@ class SokobanSolver:
         
         while stack:
             iterations += 1
-            if iterations % 5000 == 0: pygame.event.pump()
-            if time.time() - start_time > 120.0: return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+            self._update_spinner(iterations, "DFS")
+            if time.time() - start_time > 120.0:
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(stack))
             state, path, pushes = stack.pop()
             nodes_visited += 1
             
-            if self.is_goal_state(state): return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+            if self.is_goal_state(state):
+                self._clear_spinner()
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
@@ -299,14 +320,18 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if iterations % 5000 == 0: pygame.event.pump()
-            if time.time() - start_time > 120.0: return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+            self._update_spinner(iterations, "A*")
+            if time.time() - start_time > 120.0:
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(priority_queue))
             _, _, state, path, pushes = heapq.heappop(priority_queue)
             nodes_visited += 1
             
-            if self.is_goal_state(state): return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+            if self.is_goal_state(state):
+                self._clear_spinner()
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
@@ -327,14 +352,18 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if iterations % 5000 == 0: pygame.event.pump()
-            if time.time() - start_time > 120.0: return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+            self._update_spinner(iterations, "BestFS")
+            if time.time() - start_time > 120.0:
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(priority_queue))
             _, _, state, path, pushes = heapq.heappop(priority_queue)
             nodes_visited += 1
             
-            if self.is_goal_state(state): return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+            if self.is_goal_state(state):
+                self._clear_spinner()
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in visited:
@@ -343,6 +372,44 @@ class SokobanSolver:
                     nodes_generated += 1
                     priority = self.heuristic(next_state) 
                     heapq.heappush(priority_queue, (priority, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+    def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10):
+        start_time = time.time()
+        count = 0; self.current_pruned = 0
+        # Priority queue entries: (cumulative_cost, tiebreaker, state, path, pushes)
+        priority_queue = [(0, count, initial_state, [], 0)]
+        dist = {initial_state: 0}  # Best known cost to reach each state
+        nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
+        
+        while priority_queue:
+            iterations += 1
+            self._update_spinner(iterations, "Dijkstra")
+            if time.time() - start_time > 120.0:
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+            max_fringe = max(max_fringe, len(priority_queue))
+            g, _, state, path, pushes = heapq.heappop(priority_queue)
+            nodes_visited += 1
+            
+            # Skip if we already found a cheaper path to this state
+            if g > dist.get(state, float('inf')):
+                continue
+            
+            if self.is_goal_state(state):
+                self._clear_spinner()
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                
+            for move, is_push, next_state in self.get_valid_moves(state):
+                edge_cost = push_cost if is_push else move_cost
+                new_g = g + edge_cost
+                
+                if new_g < dist.get(next_state, float('inf')):
+                    dist[next_state] = new_g
+                    count += 1
+                    nodes_generated += 1
+                    heapq.heappush(priority_queue, (new_g, count, next_state, path + [move], pushes + (1 if is_push else 0)))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def _fail_dict(self, start_time, visited, generated, fringe):
