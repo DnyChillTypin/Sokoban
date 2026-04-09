@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+ENV/
+
+.vscode/
+.idea/
+
+tempCodeRunnerFile.py
+*.log
+
+.env
