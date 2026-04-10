@@ -145,12 +145,13 @@ class LevelSelection:
                     return "START", self.current_level
 
         if event.type == pygame.KEYDOWN:
+            alt_pressed = bool(pygame.key.get_mods() & (pygame.KMOD_LALT | pygame.KMOD_RALT))
             nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
             nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
             
-            if nav_left:
+            if nav_left: # Shifts on A, Left, or Alt+A, Alt+Left
                 self.shift_focus(-1)
-            elif nav_right:
+            elif nav_right: # Shifts on D, Right, or Alt+D, Alt+Right
                 self.shift_focus(1)
             elif event.key == pygame.K_RETURN:
                 return "START", self.current_level

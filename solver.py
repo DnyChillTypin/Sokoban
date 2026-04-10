@@ -3,6 +3,7 @@ import heapq
 import time
 import pygame
 import sys
+import bisect
 
 class SokobanSolver:
     def __init__(self, level):
@@ -38,6 +39,9 @@ class SokobanSolver:
         
         # 3. Precompute Exact Wall-Aware Distances for perfect, pure A*
         self._precompute_exact_distances()
+        
+        # 4. Initialize Heuristic Cache
+        self.heuristic_cache = {}
 
     def _build_deadlock_matrix(self):
         """
@@ -122,42 +126,47 @@ class SokobanSolver:
 
     def _precompute_exact_distances(self):
         """
-        Per-target BFS: For each target, BFS outward to compute the true
-        wall-aware walking distance from every reachable floor tile.
-        Also builds the 'nearest_distances' map (min over all targets)
-        used by the greedy/nearest heuristic.
+        Per-target PULL BFS: For each target, BFS outward by 'pulling' a box.
+        This detects true box-reachability (including deadlocks).
+        If a box is at a position where it cannot be pulled from any target,
+        it's a deadlock.
         """
-        self._per_target_dist = {}  # (target) -> {(x,y): dist}
+        self._per_target_dist = {}
+        self.targets_list = list(self.targets)
+        self.pullable_tiles = set()
         
-        for target in self.targets:
+        for target in self.targets_list:
             dist_map = {}
-            queue = collections.deque()
-            queue.append((target[0], target[1], 0))
+            queue = collections.deque([(target[0], target[1], 0)])
             dist_map[target] = 0
             
             while queue:
                 x, y, dist = queue.popleft()
+                self.pullable_tiles.add((x, y))
+                # Try to 'pull' the box to (nx, ny)
                 for dx, dy in ((0,1), (1,0), (0,-1), (-1,0)):
+                    # To pull a box from (x,y) to (x+dx, y+dy),
+                    # the player must move from (x+dx, y+dy) to (x-dx, y-dy)? No.
+                    # Standard Pull: Box at B, Player at P. 
+                    # If P is at (x+dx, y+dy) and B is at (x,y), 
+                    # can pull box to P if (x+2*dx, y+2*dy) is reachable by player?
+                    # Simplified: just check if both (x+dx, y+dy) and (x+2*dx, y+2*dy) are floor.
                     nx, ny = x + dx, y + dy
-                    if (nx, ny) not in self.walls and (nx, ny) not in dist_map:
-                        dist_map[(nx, ny)] = dist + 1
-                        queue.append((nx, ny, dist + 1))
+                    px, py = x + 2*dx, y + 2*dy
+                    
+                    if (nx, ny) not in self.walls and (px, py) not in self.walls:
+                        if (nx, ny) not in dist_map:
+                            dist_map[(nx, ny)] = dist + 1
+                            queue.append((nx, ny, dist + 1))
             
             self._per_target_dist[target] = dist_map
         
-        # Build nearest-distance map (used by simple heuristic)
-        all_positions = set()
-        for dm in self._per_target_dist.values():
-            all_positions.update(dm.keys())
-        
-        for pos in all_positions:
-            min_dist = 999
-            for target, dm in self._per_target_dist.items():
-                d = dm.get(pos, 999)
-                if d < min_dist:
-                    min_dist = d
-            self.nearest_distances[pos] = min_dist
-            self.exact_distances[pos] = min_dist  # backward compat
+        # Build nearest-distance map
+        self.nearest_distances = {}
+        for target, dm in self._per_target_dist.items():
+            for pos, d in dm.items():
+                if pos not in self.nearest_distances or d < self.nearest_distances[pos]:
+                    self.nearest_distances[pos] = d
             
     def _update_spinner(self, iterations, algo_name):
         if iterations % 1000 == 0:
@@ -165,7 +174,15 @@ class SokobanSolver:
             char = chars[(iterations // 1000) % 4]
             sys.stdout.write(f"\r  Crunching {algo_name}... [{char}]")
             sys.stdout.flush()
-            pygame.event.pump()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    print(f"\nSolver Aborted by User! (ESC pressed)")
+                    return "ABORT"
+        return None
 
     def _clear_spinner(self):
         sys.stdout.write("\r" + " " * 50 + "\r")
@@ -173,15 +190,41 @@ class SokobanSolver:
 
     def heuristic(self, state):
         """
-        Admissible heuristic: greedy assignment of boxes to targets using the
-        minimum wall-aware distance. This is a simple sum-of-minimums which is
-        admissible (never overestimates) and uses O(1) precomputed lookups.
+        Admissible heuristic: Minimum Cost Perfect Matching using bitmask DP.
+        Uses cached matching to prune the search tree significantly.
         """
         _, _, boxes = state
-        total = 0
-        for bx, by in boxes:
-            # O(1) Lookup: Perfectly accurate, pure, and incredibly fast
-            total += self.nearest_distances.get((bx, by), 999) 
+        if boxes in self.heuristic_cache:
+            return self.heuristic_cache[boxes]
+        
+        num_boxes = len(boxes)
+        # 1. Build cost matrix
+        costs = [[self._per_target_dist[t].get(b, 999) for t in self.targets_list] for b in boxes]
+        
+        # 3. Solve matching
+        dp = {}
+        target_count = len(self.targets_list)
+        def solve_matching(box_idx, mask):
+            if box_idx == num_boxes:
+                return 0
+            state_key = (box_idx, mask)
+            if state_key in dp:
+                return dp[state_key]
+            
+            res = 999999
+            row = costs[box_idx]
+            for t_idx in range(target_count):
+                if not (mask & (1 << t_idx)):
+                    cost = row[t_idx]
+                    # Since we already checked pullable_tiles, we know most are < 999
+                    m = cost + solve_matching(box_idx + 1, mask | (1 << t_idx))
+                    if m < res: res = m
+            
+            dp[state_key] = res
+            return res
+
+        total = solve_matching(0, 0)
+        self.heuristic_cache[boxes] = total
         return total
 
     def get_initial_state(self, player, level):
@@ -231,17 +274,15 @@ class SokobanSolver:
                 if (bx, by) in walls or (bx, by) in boxes:
                     continue
                 
-                if (bx, by) in deadlocks:
+                if (bx, by) in deadlocks or (bx, by) not in self.pullable_tiles:
                     self.current_pruned += 1
                     continue
                 
-                # OPTIMIZATION: Maintain sorted tuple
-                new_boxes_list = []
-                for b in boxes:
-                    if b != (nx, ny):
-                        new_boxes_list.append(b)
-                new_boxes_list.append((bx, by))
-                new_boxes = tuple(sorted(new_boxes_list))
+                # OPTIMIZATION: Maintain sorted tuple using bisect
+                new_boxes_list = list(boxes)
+                new_boxes_list.remove((nx, ny))
+                bisect.insort(new_boxes_list, (bx, by))
+                new_boxes = tuple(new_boxes_list)
                 
                 # Freeze deadlock check on the pushed box
                 new_boxes_set = set(new_boxes)
@@ -253,167 +294,201 @@ class SokobanSolver:
             else:
                 yield move_dir, False, (nx, ny, boxes)
 
+    def _reconstruct_path(self, state, came_from):
+        path = []
+        pushes = 0
+        while state in came_from and came_from[state] is not None:
+            state, move, is_push = came_from[state]
+            path.append(move)
+            if is_push:
+                pushes += 1
+        return path[::-1], pushes
+
     def solve_bfs(self, initial_state):
         start_time = time.time()
         self.current_pruned = 0
-        queue = collections.deque([(initial_state, [], 0)])
-        visited = {initial_state}
+        queue = collections.deque([initial_state])
+        came_from = {initial_state: None}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while queue:
             iterations += 1
-            self._update_spinner(iterations, "BFS")
+            if self._update_spinner(iterations, "BFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0: 
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(queue))
-            state, path, pushes = queue.popleft()
+            state = queue.popleft()
             nodes_visited += 1
             
             if self.is_goal_state(state): 
                 self._clear_spinner()
+                path, pushes = self._reconstruct_path(state, came_from)
                 return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
+                if next_state not in came_from:
+                    came_from[next_state] = (state, move, is_push)
                     nodes_generated += 1
-                    queue.append((next_state, path + [move], pushes + (1 if is_push else 0)))
+                    queue.append(next_state)
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def solve_dfs(self, initial_state):
         start_time = time.time()
         self.current_pruned = 0
-        stack = [(initial_state, [], 0)]
-        visited = {initial_state}
+        stack = [initial_state]
+        came_from = {initial_state: None}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while stack:
             iterations += 1
-            self._update_spinner(iterations, "DFS")
+            if self._update_spinner(iterations, "DFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(stack))
-            state, path, pushes = stack.pop()
+            state = stack.pop()
             nodes_visited += 1
             
             if self.is_goal_state(state):
                 self._clear_spinner()
+                path, pushes = self._reconstruct_path(state, came_from)
                 return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
+                if next_state not in came_from:
+                    came_from[next_state] = (state, move, is_push)
                     nodes_generated += 1
-                    stack.append((next_state, path + [move], pushes + (1 if is_push else 0)))
+                    stack.append(next_state)
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def solve_astar(self, initial_state):
         start_time = time.time()
         count = 0; self.current_pruned = 0
-        priority_queue = [(0, count, initial_state, [], 0)]
-        visited = {initial_state}
+        # PQ entry: (f_score, tiebreaker, state, g_score)
+        priority_queue = [(self.heuristic(initial_state), count, initial_state, 0)]
+        came_from = {initial_state: None}
+        cost_so_far = {initial_state: 0}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "A*")
+            if self._update_spinner(iterations, "A*") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(priority_queue))
-            _, _, state, path, pushes = heapq.heappop(priority_queue)
+            _, _, state, g = heapq.heappop(priority_queue)
             nodes_visited += 1
             
             if self.is_goal_state(state):
                 self._clear_spinner()
+                path, pushes = self._reconstruct_path(state, came_from)
                 return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
+                new_cost = g + 1
+                if next_state not in cost_so_far or new_cost < cost_so_far[next_state]:
+                    cost_so_far[next_state] = new_cost
+                    came_from[next_state] = (state, move, is_push)
                     count += 1
                     nodes_generated += 1
-                    # PURE A*: len(path) + perfect heuristic. No multipliers.
-                    priority = len(path) + self.heuristic(next_state)
-                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+                    priority = new_cost + self.heuristic(next_state)
+                    heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def solve_best_first(self, initial_state):
         start_time = time.time()
         count = 0; self.current_pruned = 0
-        priority_queue = [(0, count, initial_state, [], 0)]
-        visited = {initial_state}
+        priority_queue = [(self.heuristic(initial_state), count, initial_state)]
+        came_from = {initial_state: None}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "BestFS")
+            if self._update_spinner(iterations, "BestFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(priority_queue))
-            _, _, state, path, pushes = heapq.heappop(priority_queue)
+            _, _, state = heapq.heappop(priority_queue)
             nodes_visited += 1
             
             if self.is_goal_state(state):
                 self._clear_spinner()
+                path, pushes = self._reconstruct_path(state, came_from)
                 return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
-                if next_state not in visited:
-                    visited.add(next_state)
+                if next_state not in came_from:
+                    came_from[next_state] = (state, move, is_push)
                     count += 1
                     nodes_generated += 1
                     priority = self.heuristic(next_state) 
-                    heapq.heappush(priority_queue, (priority, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+                    heapq.heappush(priority_queue, (priority, count, next_state))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10):
         start_time = time.time()
         count = 0; self.current_pruned = 0
-        # Priority queue entries: (cumulative_cost, tiebreaker, state, path, pushes)
-        priority_queue = [(0, count, initial_state, [], 0)]
-        dist = {initial_state: 0}  # Best known cost to reach each state
+        # PQ entry: (g_score, tiebreaker, state)
+        priority_queue = [(0, count, initial_state)]
+        came_from = {initial_state: None}
+        cost_so_far = {initial_state: 0}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "Dijkstra")
+            if self._update_spinner(iterations, "Dijkstra") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
             max_fringe = max(max_fringe, len(priority_queue))
-            g, _, state, path, pushes = heapq.heappop(priority_queue)
+            g, _, state = heapq.heappop(priority_queue)
             nodes_visited += 1
             
-            # Skip if we already found a cheaper path to this state
-            if g > dist.get(state, float('inf')):
+            if g > cost_so_far.get(state, float('inf')):
                 continue
             
             if self.is_goal_state(state):
                 self._clear_spinner()
+                path, pushes = self._reconstruct_path(state, came_from)
                 return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 edge_cost = push_cost if is_push else move_cost
                 new_g = g + edge_cost
                 
-                if new_g < dist.get(next_state, float('inf')):
-                    dist[next_state] = new_g
+                if next_state not in cost_so_far or new_g < cost_so_far[next_state]:
+                    cost_so_far[next_state] = new_g
+                    came_from[next_state] = (state, move, is_push)
                     count += 1
                     nodes_generated += 1
-                    heapq.heappush(priority_queue, (new_g, count, next_state, path + [move], pushes + (1 if is_push else 0)))
+                    heapq.heappush(priority_queue, (new_g, count, next_state))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def _fail_dict(self, start_time, visited, generated, fringe):
-        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned}
+    def _fail_dict(self, start_time, visited, generated, fringe, aborted=False):
+        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned, 'aborted': aborted}
         
     def _success_dict(self, path, start_time, visited, generated, fringe, pushes):
         return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'pruned': self.current_pruned}
