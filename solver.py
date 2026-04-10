@@ -180,6 +180,7 @@ class SokobanSolver:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    print(f"\nSolver Aborted by User! (ESC pressed)")
                     return "ABORT"
         return None
 

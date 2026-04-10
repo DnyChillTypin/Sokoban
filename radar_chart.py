@@ -15,34 +15,97 @@ class RadarChart:
         self.data_snapshots = {}
         self.max_bounds = {k: 0.1 for k in self.metric_keys}
 
-        # Tooltip hover state
         self.hovered_algo = None
         self.hover_start_time = 0
         self.HOVER_DELAY_MS = 500
         self.legend_hitboxes = []
-
-    def update_data(self, results_dict):
-        self.data_snapshots = results_dict
-        # Reset max bounds
-        self.max_bounds = {k: 0.1 for k in self.metric_keys} # Use 0.1 to prevent zero div
         
-        # Calculate maximum for each metric across algorithms for normalization
-        for algo, metrics in self.data_snapshots.items():
-            if metrics is None or not isinstance(metrics, dict):
-                continue
+        # Animation Queue System
+        self.anim_queue = [] # List of (algo_name, metrics_dict)
+        self.active_algo = None
+        self.active_metrics = None
+        self.finished_algos = {} # algo_name -> metrics_dict
+        
+        self.progress = 0.0
+        self.ANIMATION_SPEED = 2.0 # Progress per second (0.5s duration)
+        
+        # Normalization Bounds
+        self.old_max_bounds = {k: 0.1 for k in self.metric_keys}
+        self.new_max_bounds = {k: 0.1 for k in self.metric_keys}
+
+    def _get_max_bounds(self, algorithms_dict):
+        bounds = {k: 0.1 for k in self.metric_keys}
+        for metrics in algorithms_dict.values():
+            if metrics is None or not isinstance(metrics, dict): continue
             for k in self.metric_keys:
                 val = metrics.get(k, 0)
                 if val == "FAIL": val = 0
-                self.max_bounds[k] = max(self.max_bounds[k], float(val))
-                
-        # Ensure no max_bound is 0
-        for k in self.metric_keys:
-            if self.max_bounds[k] <= 0:
-                self.max_bounds[k] = 1.0
+                bounds[k] = max(bounds[k], float(val))
+        for k in bounds:
+            if bounds[k] <= 0: bounds[k] = 1.0
+        return bounds
+
+    def add_to_queue(self, algo_name, metrics):
+        """Add a new algorithm result to the sequential animation queue."""
+        # Check if already finished, currently active, or already in the queue
+        if algo_name in self.finished_algos or (self.active_algo == algo_name):
+            return
+            
+        if any(name == algo_name for name, _ in self.anim_queue):
+            return
+            
+        self.anim_queue.append((algo_name, metrics))
+        if self.active_algo is None:
+            self._start_next_animation()
+
+    def _start_next_animation(self):
+        if not self.anim_queue:
+            self.active_algo = None
+            self.active_metrics = None
+            return
+
+        self.active_algo, self.active_metrics = self.anim_queue.pop(0)
+        self.progress = 0.0
+        self.old_max_bounds = self._get_max_bounds(self.finished_algos)
+        
+        temp_finished = self.finished_algos.copy()
+        temp_finished[self.active_algo] = self.active_metrics
+        self.new_max_bounds = self._get_max_bounds(temp_finished)
+
+    def update(self, dt):
+        """Tick the animation state machine driven by delta time."""
+        if self.active_algo is None:
+            if self.anim_queue:
+                self._start_next_animation()
+            return
+
+        # Safety: Cap dt to 100ms to prevent animation skipping after long solver freezes
+        capped_dt = min(dt, 0.1)
+        self.progress += capped_dt * self.ANIMATION_SPEED
+        if self.progress >= 1.0:
+            self.progress = 1.0
+            self.finished_algos[self.active_algo] = self.active_metrics
+            self._start_next_animation()
+
+    def reset(self):
+        """Clear all snapshots and queues."""
+        self.anim_queue.clear()
+        self.active_algo = None
+        self.active_metrics = None
+        self.finished_algos.clear()
+        self.progress = 0.0
+        self.old_max_bounds = {k: 0.1 for k in self.metric_keys}
+        self.new_max_bounds = {k: 0.1 for k in self.metric_keys}
+
+    def trigger_replay(self, metrics_map):
+        """Re-queue all provided results for a fresh animation cycle."""
+        self.reset()
+        for name, metrics in metrics_map.items():
+            self.add_to_queue(name, metrics)
 
     def _draw_tooltip(self, surface, algo, mouse_pos):
         """Draw a detailed metrics tooltip near the mouse cursor."""
-        metrics = self.data_snapshots.get(algo)
+        metrics = self.finished_algos.get(algo)
         if not metrics or not isinstance(metrics, dict):
             return
 
@@ -103,7 +166,7 @@ class RadarChart:
             cur_y += ts.get_height() + line_spacing
 
     def draw(self, surface, visible_algos=None):
-        if not self.data_snapshots:
+        if not self.finished_algos and not self.active_algo:
             return
 
         cx, cy = self.center
@@ -114,7 +177,14 @@ class RadarChart:
             for dx, dy in offsets:
                 surf.set_at((cx + dx, cy + dy), color)
 
-        # 1. Draw web backgrounds (wireframes)
+        # 1. Calculate Current Max Bounds (LERP between old and new)
+        current_max_bounds = {}
+        for k in self.metric_keys:
+            old = self.old_max_bounds[k]
+            new = self.new_max_bounds[k]
+            current_max_bounds[k] = old + (new - old) * self.progress
+
+        # 2. Draw web backgrounds (wireframes)
         num_rings = 4
         for r in range(1, num_rings + 1):
             ratio = r / num_rings
@@ -125,118 +195,95 @@ class RadarChart:
                 points.append((px, py))
             pygame.draw.polygon(surface, (140, 140, 140), points, 2)
 
-        # 2. Draw spokes and labels
+        # 3. Draw spokes and labels
         for i, angle in enumerate(self.angles):
             px = cx + self.radius * math.cos(angle)
             py = cy + self.radius * math.sin(angle)
             pygame.draw.line(surface, (140, 140, 140), (cx, cy), (px, py), 2)
-
-            # Labels
             label_text = self.metrics[i]
-            # Offset labels outwards depending on length
             lx = cx + (self.radius + 35) * math.cos(angle)
             ly = cy + (self.radius + 35) * math.sin(angle)
-            
             txt_surf = self.font.render(label_text, True, (200, 200, 200))
             rect = txt_surf.get_rect(center=(lx, ly))
             surface.blit(txt_surf, rect)
 
-        # 3. Draw algorithm polygons
-        # Create a transparent surface for overlapping blending
+        # 4. Collection for rendering
         surf_w = int(self.radius * 3)
         surf_h = int(self.radius * 3)
         poly_surface = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
         poly_center = (surf_w // 2, surf_h // 2)
-        for algo, metrics in self.data_snapshots.items():
-            if metrics is None or not isinstance(metrics, dict):
+
+        def get_poly_points(center, metrics, bounds, scale=1.0):
+            pts = []
+            for i, k in enumerate(self.metric_keys):
+                val = metrics.get(k, 0)
+                if val == "FAIL": val = 0
+                normalized = float(val) / bounds[k]
+                # Constant speed math: instead of normalized * scale, 
+                # we use min(normalized, scale) so every vertex moves at 1.0 units per duration.
+                dist = self.radius * min(normalized, scale)
+                px = center[0] + dist * math.cos(self.angles[i])
+                py = center[1] + dist * math.sin(self.angles[i])
+                pts.append((px, py))
+            return pts
+
+        # Combine finished and active for drawing
+        all_to_draw = list(self.finished_algos.items())
+        if self.active_algo:
+            all_to_draw.append((self.active_algo, self.active_metrics))
+
+        for algo, metrics in all_to_draw:
+            if not metrics or not isinstance(metrics, dict):
                 continue
             if visible_algos is not None and algo not in visible_algos:
                 continue
 
+            # Vertex Split: expanding algo starts at scale 0.0, others stay at 1.0 (relative to lerped bounds)
+            scale = self.progress if algo == self.active_algo else 1.0
             color = self.color_map.get(algo, (255, 255, 255))
-            poly_points = []
-            
-            for i, k in enumerate(self.metric_keys):
-                val = metrics.get(k, 0)
-                if val == "FAIL": val = 0
-                val = float(val)
-
-                normalized = val / self.max_bounds[k]
-                dist = self.radius * normalized
-                px = poly_center[0] + dist * math.cos(self.angles[i])
-                py = poly_center[1] + dist * math.sin(self.angles[i])
-                poly_points.append((px, py))
+            poly_points = get_poly_points(poly_center, metrics, current_max_bounds, scale)
             
             if len(poly_points) >= 3:
-                # To ensure proper alpha blending in Pygame, draw each poly to its own surf
                 algo_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
-                
-                # Translucency setup (Wireframe focus)
-                fill_color = (*color, 30) # Very faint fill for footprint
-                edge_color = (*color, 255) # Fully vibrant edge
-                
-                pygame.draw.polygon(algo_surf, fill_color, poly_points)
-                pygame.draw.polygon(algo_surf, edge_color, poly_points, 3) # Thicker 3px edge
-                
-                # Blit to the collective poly surface
+                pygame.draw.polygon(algo_surf, (*color, 30), poly_points)
+                pygame.draw.polygon(algo_surf, (*color, 255), poly_points, 3)
                 poly_surface.blit(algo_surf, (0, 0))
 
-        # --- LEGEND REFACTOR: Multi-line Centered Layout ---
+        # Legend Logic
         row1_keys = ['BFS', 'DFS', 'BestFS']
         row2_keys = ['Dijkstra', 'A*']
-        
-        # Helper to get active algos for a row
-        get_active = lambda keys: [(k, self.data_snapshots[k]) for k in keys if k in self.data_snapshots and isinstance(self.data_snapshots[k], dict) and (visible_algos is None or k in visible_algos)]
+        get_active = lambda keys: [(k, self.finished_algos.get(k) or (self.active_metrics if k == self.active_algo else None)) 
+                                   for k in keys if (k in self.finished_algos or k == self.active_algo) 
+                                   and (visible_algos is None or k in visible_algos)]
         
         row1_algos = get_active(row1_keys)
         row2_algos = get_active(row2_keys)
-        
         spacing = 160
         legend_start_y = cy + self.radius + 60
+        self.legend_hitboxes = []
 
-        mouse_pos = pygame.mouse.get_pos()
-        current_hover = None
-        self.legend_hitboxes = []  # Collect hitboxes for hover detection
-        
         def draw_row(algos, start_y):
-            row_width = (len(algos) - 1) * spacing + 100 # Approx width
+            row_width = (len(algos) - 1) * spacing + 100
             row_start_x = cx - row_width // 2
             for i, (algo, _) in enumerate(algos):
                 color = self.color_map.get(algo, (255, 255, 255))
-                lx = row_start_x + (i * spacing)
-                ly = start_y
+                lx, ly = row_start_x + (i * spacing), start_y
                 pygame.draw.rect(surface, color, (lx, ly, 20, 20))
-                
-                if algo.lower() == "a*":
-                    display_name = "A"
-                    txt_surf = self.font.render(display_name, True, (255, 255, 255))
-                    surface.blit(txt_surf, (lx + 30, ly))
-                    # Draw star next to A (superscript)
-                    draw_pixel_star(surface, lx + 30 + txt_surf.get_width() + 6, ly + 6, (255, 255, 255))
-                    text_w = txt_surf.get_width() + 16  # Account for star
-                else:
-                    display_name = algo.upper()
-                    txt_surf = self.font.render(display_name, True, (255, 255, 255))
-                    surface.blit(txt_surf, (lx + 30, ly))
-                    text_w = txt_surf.get_width()
+                display_name = "A" if algo.lower() == "a*" else algo.upper()
+                txt_surf = self.font.render(display_name, True, (255, 255, 255))
+                surface.blit(txt_surf, (lx + 30, ly))
+                if algo.lower() == "a*": draw_pixel_star(surface, lx + 30 + txt_surf.get_width() + 6, ly + 6, (255, 255, 255))
+                text_w = txt_surf.get_width() + (16 if algo.lower() == "a*" else 0)
+                self.legend_hitboxes.append((algo, pygame.Rect(lx, ly, 30 + text_w, max(20, txt_surf.get_height()))))
 
-                # Build hitbox covering color square + text
-                hitbox = pygame.Rect(lx, ly, 30 + text_w, max(20, txt_surf.get_height()))
-                self.legend_hitboxes.append((algo, hitbox))
+        if row1_algos: draw_row(row1_algos, legend_start_y)
+        if row2_algos: draw_row(row2_algos, legend_start_y + 40)
 
-        if row1_algos:
-            draw_row(row1_algos, legend_start_y)
-        if row2_algos:
-            draw_row(row2_algos, legend_start_y + 40)
-
-        # Blit the accumulated alpha surface back to the main surface
-        top_left_x = cx - poly_center[0]
-        top_left_y = cy - poly_center[1]
-        surface.blit(poly_surface, (top_left_x, top_left_y))
+        surface.blit(poly_surface, (cx - poly_center[0], cy - poly_center[1]))
 
     def draw_tooltip(self, surface):
         """Logic to detect hover and render the top-layer tooltip."""
-        if not self.data_snapshots:
+        if not self.finished_algos and not self.active_algo:
             return
 
         mouse_pos = pygame.mouse.get_pos()

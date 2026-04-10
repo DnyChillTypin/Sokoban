@@ -165,7 +165,7 @@ class GameMenu:
         self.play_btn.update(0)
         self.hint_btn.enable() 
         self.execution_cache.clear()
-        self.radar_chart.update_data({}) # Clear chart snapshots
+        self.radar_chart.reset() 
         for res_btn in self.result_btns.values(): res_btn.hide()
 
     def show_results(self, results_dict, full_metrics=None):
@@ -175,8 +175,9 @@ class GameMenu:
                 self.result_btns[algo].show()
         
         if full_metrics:
-            self.execution_cache.update(full_metrics)
-            self.radar_chart.update_data(self.execution_cache)
+            for algo, metrics in full_metrics.items():
+                self.execution_cache[algo] = metrics
+                self.radar_chart.add_to_queue(algo, metrics)
 
     def process_events(self, event):
         self.manager.process_events(event)
@@ -236,6 +237,7 @@ class GameMenu:
 
     def update(self, time_delta):
         self.manager.update(time_delta)
+        self.radar_chart.update(time_delta)
 
     def draw(self, surface):
         if self.expanded:

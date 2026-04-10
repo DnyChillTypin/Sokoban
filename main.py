@@ -152,10 +152,19 @@ class Game:
             self.menu.is_playing = False
             self.menu.play_btn.unselect()
             return
+            
+        # --- REPLAY LOGIC ---
+        # If all selected algorithms already have cached results, just replay the animation
+        cached_algos = {algo: self.menu.execution_cache[algo] for algo in self.menu.selected_algos if algo in self.menu.execution_cache}
+        if len(cached_algos) == len(self.menu.selected_algos) and len(cached_algos) > 0:
+            print(f"Replaying cached results for: {', '.join(cached_algos.keys())}")
+            self.menu.radar_chart.trigger_replay(cached_algos)
+            self.menu.is_playing = False
+            self.menu.play_btn.unselect()
+            self.menu.play_btn.update(0)
+            return
 
         print(f"\n{'='*95}\nExecuting Solver Engine...\n{'-'*95}")
-        self.menu.update(0.016) 
-        self.draw()             
         
         self.saved_solver_state = {
             'player': (self.player.x, self.player.y),
@@ -182,16 +191,12 @@ class Game:
             moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
             print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
             
-            # Incremental UI Update
+            # Incremental Results Update (Animations are now non-blocking)
             self.menu.show_results(self.solver_results, full_metrics)
-            self.draw()
-            pygame.display.update()
             
             if result.get('aborted'):
                 print(f"Batch Execution Aborted by User!")
                 break
-                
-            pygame.time.delay(50) # Small delay to see the update
             
         print(f"{'='*95}\n")
         
@@ -343,6 +348,7 @@ class Game:
                     self.menu.hint_btn.enable()
                     print("Playback Interrupted!")
 
+                # Alt + Navigation keybinds for Level Selection
                 if alt_pressed:
                     nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
                     nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
@@ -359,6 +365,7 @@ class Game:
 
                 if event.key == pygame.K_ESCAPE: 
                     self.game_state = "LEVEL_SELECT"
+                    continue
                 elif event.key == pygame.K_r: 
                     self.load_current_level()
                 
