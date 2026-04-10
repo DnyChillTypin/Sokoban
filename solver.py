@@ -190,13 +190,7 @@ class SokobanSolver:
             return self.heuristic_cache[boxes]
         
         num_boxes = len(boxes)
-        # 1. Check for immediate pull-deadlocks
-        for b in boxes:
-            if b not in self.pullable_tiles:
-                self.heuristic_cache[boxes] = 999999
-                return 999999
-        
-        # 2. Build cost matrix
+        # 1. Build cost matrix
         costs = [[self._per_target_dist[t].get(b, 999) for t in self.targets_list] for b in boxes]
         
         # 3. Solve matching
@@ -272,7 +266,7 @@ class SokobanSolver:
                 if (bx, by) in walls or (bx, by) in boxes:
                     continue
                 
-                if (bx, by) in deadlocks:
+                if (bx, by) in deadlocks or (bx, by) not in self.pullable_tiles:
                     self.current_pruned += 1
                     continue
                 
