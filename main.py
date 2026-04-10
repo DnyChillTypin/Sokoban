@@ -29,7 +29,7 @@ class Game:
         self.manager = pygame_gui.UIManager((window_width, window_height))
         self.level_selector = LevelSelection(self.screen, self.manager)
         
-        self.game_state = "START_SCREEN"
+        self.game_state = "MAIN_MENU"
 
         self.menu = GameMenu()
         self.solver_results = {}
@@ -54,7 +54,12 @@ class Game:
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
 
-        self.current_level_num = 0
+        if os.path.exists('levels/test.txt'):
+            self.current_level_num = 'test'
+            print("Notice: Booting in Sandbox Mode (test.txt found!)")
+        else:
+            self.current_level_num = 0
+
         self.moves_count = 0
         self.load_current_level()
 
@@ -160,6 +165,7 @@ class Game:
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
         self.solver_results.clear()
+        full_metrics = {}
         
         print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
         
@@ -167,16 +173,18 @@ class Game:
             if algo == 'BFS': result = solver.solve_bfs(current_state)
             elif algo == 'DFS': result = solver.solve_dfs(current_state)
             elif algo == 'A*': result = solver.solve_astar(current_state)
-            elif algo == 'BestFS': result = solver.solve_best_first(current_state) 
+            elif algo == 'BestFS': result = solver.solve_best_first(current_state)
+            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state)
                 
             self.solver_results[algo] = result['path']
+            full_metrics[algo] = result
             
             moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
             print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
             
         print(f"{'='*95}\n")
         
-        self.menu.show_results(self.solver_results)
+        self.menu.show_results(self.solver_results, full_metrics)
         self.menu.is_playing = False
         self.menu.play_btn.unselect()
         self.menu.hint_btn.enable()
@@ -185,42 +193,86 @@ class Game:
         while self.running:
             time_delta = self.clock.tick(fps) / 1000.0
 
-            if self.game_state == "START_SCREEN":
+            if self.game_state == "MAIN_MENU":
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT: self.quit_game()
+                    if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        self.game_state = "QUIT_PROMPT"
+                        
                     menu_action = self.start_menu.handle_events(event)
                     
-                    # --- CẬP NHẬT: Logic chuyển sang màn hình chọn Level ---
                     if menu_action == "START_GAME":
-                        self.game_state = "SELECT_LEVEL"
+                        self.game_state = "LEVEL_SELECT"
                     elif menu_action == "QUIT":
-                        self.quit_game()
+                        self.game_state = "QUIT_PROMPT"
                 
                 self.start_menu.draw(time_delta)
                 pygame.display.update()
             
-            # --- BỔ SUNG: Logic trạng thái SELECT_LEVEL từ bản code trước ---
-            elif self.game_state == "SELECT_LEVEL":
+            elif self.game_state == "LEVEL_SELECT":
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT: self.quit_game()
-                    
+                    if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        self.game_state = "MAIN_MENU"
+                        
                     action, level = self.level_selector.handle_events(event)
                     if action == "START":
                         self.current_level_num = level
                         self.load_current_level()
-                        self.game_state = "PLAYING"
+                        self.game_state = "GAMEPLAY"
                     elif action == "HOME":
-                        self.game_state = "START_SCREEN"
+                        self.game_state = "MAIN_MENU"
                 
                 self.manager.update(time_delta)
                 self.level_selector.draw()
                 self.manager.draw_ui(self.screen)
                 pygame.display.update()
 
-            elif self.game_state == "PLAYING":
+            elif self.game_state == "GAMEPLAY":
                 self.event()
                 self.update(time_delta)
                 self.draw()
+
+            elif self.game_state == "QUIT_PROMPT":
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT: self.quit_game()
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        self.quit_game()
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        mouse_pos = event.pos
+                        if getattr(self, 'yes_rect', pygame.Rect(0,0,0,0)).collidepoint(mouse_pos):
+                            self.quit_game()
+                        elif getattr(self, 'no_rect', pygame.Rect(0,0,0,0)).collidepoint(mouse_pos):
+                            self.game_state = "MAIN_MENU"
+
+                self.draw_quit_prompt()
+                pygame.display.update()
+
+    def draw_quit_prompt(self):
+        self.start_menu.draw(0)
+        overlay = pygame.Surface((window_width, window_height))
+        overlay.set_alpha(200)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        txt = self.font_large.render("Are you sure?", True, (255, 255, 255))
+        rect = txt.get_rect(center=(window_width // 2, window_height // 2 - 100))
+        self.screen.blit(txt, rect)
+
+        yes_txt = self.font_small.render("Yes", True, (255, 100, 100))
+        self.yes_rect = yes_txt.get_rect(center=(window_width // 2 - 150, window_height // 2 + 100))
+        
+        mouse_pos = pygame.mouse.get_pos()
+        if self.yes_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(self.screen, (50, 0, 0), self.yes_rect.inflate(40, 20), border_radius=10)
+        self.screen.blit(yes_txt, self.yes_rect)
+
+        no_txt = self.font_small.render("No", True, (100, 255, 100))
+        self.no_rect = no_txt.get_rect(center=(window_width // 2 + 150, window_height // 2 + 100))
+        
+        if self.no_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(self.screen, (0, 50, 0), self.no_rect.inflate(40, 20), border_radius=10)
+        self.screen.blit(no_txt, self.no_rect)
 
     def quit_game(self):
         pygame.quit()
@@ -235,7 +287,12 @@ class Game:
 
             if self.level_complete_waiting:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    self.current_level_num += 1
+                    
+                    if self.current_level_num == 'test':
+                        self.current_level_num = 0
+                    else:
+                        self.current_level_num += 1
+
                     if os.path.exists(f'levels/{self.current_level_num}.txt'):
                         self.load_current_level()
                     else:
@@ -246,6 +303,14 @@ class Game:
             if action == "RUN_SOLVER": self.execute_solvers() 
             elif action == "PLAY_CLICKED": self.execute_solvers()
             elif action == "HINT_CLICKED": self.execute_hint()
+            elif action == "UNDO_CLICKED":
+                if len(self.history) > 0:
+                    last_state = self.history.pop()
+                    self.player.x, self.player.y = last_state['player']
+                    self.level.boxes = [list(box) for box in last_state['boxes']]
+                    self._reset_hint_state()
+            elif action == "RESET_CLICKED": 
+                self.load_current_level()
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
@@ -260,23 +325,32 @@ class Game:
                     if self.menu.expanded: self.menu.toggle_expansion() 
 
             if event.type == pygame.KEYDOWN:
+                alt_pressed = bool(pygame.key.get_mods() & (pygame.KMOD_LALT | pygame.KMOD_RALT))
+
                 if self.is_playing_back:
                     self.is_playing_back = False
                     self.menu.hint_btn.enable()
                     print("Playback Interrupted!")
 
+                if alt_pressed:
+                    nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
+                    nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
+                    if nav_left:
+                        self.level_selector.shift_focus(-1)
+                        self.game_state = "LEVEL_SELECT"
+                        continue
+                    elif nav_right:
+                        self.level_selector.shift_focus(1)
+                        self.game_state = "LEVEL_SELECT"
+                        continue
+
                 if self.handle_movement_input(event.key): continue
 
-                if event.key == pygame.K_ESCAPE: self.quit_game()
-                elif event.key == pygame.K_r: self.load_current_level()
-                elif event.key == pygame.K_n:
-                    if os.path.exists(f'levels/{self.current_level_num + 1}.txt'):
-                        self.current_level_num += 1
-                        self.load_current_level()
-                elif event.key == pygame.K_p:
-                    if self.current_level_num > 0:
-                        self.current_level_num -= 1
-                        self.load_current_level()
+                if event.key == pygame.K_ESCAPE: 
+                    self.game_state = "LEVEL_SELECT"
+                elif event.key == pygame.K_r: 
+                    self.load_current_level()
+                
                 elif event.key == pygame.K_z:
                     if len(self.history) > 0:
                         last_state = self.history.pop()

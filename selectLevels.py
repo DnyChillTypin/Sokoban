@@ -20,7 +20,20 @@ class LevelSelection:
         self.dark_overlay.fill((0, 0, 0))
         self.dark_overlay.set_alpha(150)
 
-        self.current_level = 0
+        self.available_levels = []
+        if os.path.exists("levels/test.txt"):
+            self.available_levels.append('test')
+        
+        idx = 0
+        while os.path.exists(f"levels/{idx}.txt"):
+            self.available_levels.append(idx)
+            idx += 1
+            
+        if not self.available_levels:
+            self.available_levels = [0]
+
+        self.current_level_idx = 0
+        self.current_level = self.available_levels[self.current_level_idx]
         self.selected_level = None
 
         self.level_cache = {}
@@ -70,14 +83,14 @@ class LevelSelection:
         return pattern
 
     def _load_level_preview(self):
+        self.current_level = self.available_levels[self.current_level_idx]
         if self.current_level not in self.level_cache:
             if not os.path.exists(f"levels/{self.current_level}.txt"):
-                self.current_level = 0
+                self.current_level_idx = 0
+                self.current_level = self.available_levels[self.current_level_idx]
 
             if self.current_level not in self.level_cache:
                 self.level_cache[self.current_level] = Level(self.current_level)
-
-            self.level_cache[self.current_level] = Level(self.current_level)
 
         level = self.level_cache[self.current_level]
         self.box_count = len(level.boxes)
@@ -116,6 +129,12 @@ class LevelSelection:
             preview_h
         )
 
+    def shift_focus(self, offset):
+        old_idx = self.current_level_idx
+        self.current_level_idx = max(0, min(len(self.available_levels) - 1, self.current_level_idx + offset))
+        if old_idx != self.current_level_idx:
+            self._load_level_preview()
+
     def handle_events(self, event):
         self.manager.process_events(event)
 
@@ -125,16 +144,22 @@ class LevelSelection:
                 if self.preview_rect.collidepoint(mouse_pos):
                     return "START", self.current_level
 
+        if event.type == pygame.KEYDOWN:
+            nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
+            nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
+            
+            if nav_left:
+                self.shift_focus(-1)
+            elif nav_right:
+                self.shift_focus(1)
+            elif event.key == pygame.K_RETURN:
+                return "START", self.current_level
+
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-
             if event.ui_element == self.left_btn:
-                self.current_level = max(0, self.current_level - 1)
-                self._load_level_preview()
-
+                self.shift_focus(-1)
             elif event.ui_element == self.right_btn:
-                self.current_level += 1
-                self._load_level_preview()
-
+                self.shift_focus(1)
             elif event.ui_element == self.home_btn:
                 return "HOME", self.current_level
         return None, None
@@ -148,12 +173,14 @@ class LevelSelection:
 
         font = pygame.font.Font(font_path, 80)
 
+        level_name = "TEST LEVEL" if self.current_level == 'test' else f"LEVEL {self.current_level + 1}"
+
         txt = font.render(
-            f"LEVEL {self.current_level + 1}", True, (0, 255, 127)
+            level_name, True, (0, 255, 127)
         )
 
         shadow = font.render(
-            f"LEVEL {self.current_level + 1}", True, (0, 50, 0)
+            level_name, True, (0, 50, 0)
         )
 
         TITLE_Y = 80
