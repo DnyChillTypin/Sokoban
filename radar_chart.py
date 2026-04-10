@@ -123,13 +123,13 @@ class RadarChart:
                 px = cx + self.radius * ratio * math.cos(angle)
                 py = cy + self.radius * ratio * math.sin(angle)
                 points.append((px, py))
-            pygame.draw.polygon(surface, (100, 100, 100), points, 2)
+            pygame.draw.polygon(surface, (140, 140, 140), points, 2)
 
         # 2. Draw spokes and labels
         for i, angle in enumerate(self.angles):
             px = cx + self.radius * math.cos(angle)
             py = cy + self.radius * math.sin(angle)
-            pygame.draw.line(surface, (100, 100, 100), (cx, cy), (px, py), 2)
+            pygame.draw.line(surface, (140, 140, 140), (cx, cy), (px, py), 2)
 
             # Labels
             label_text = self.metrics[i]

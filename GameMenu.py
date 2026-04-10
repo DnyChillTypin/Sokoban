@@ -119,8 +119,10 @@ class GameMenu:
 
         if self.expanded:
             self.toggle_btn.select()
+            self.toggle_btn.update(0)
         else:
             self.toggle_btn.unselect()
+            self.toggle_btn.update(0)
 
         if not self.expanded and self.ai_dropdown_open:
             self.toggle_ai_dropdown()
@@ -131,6 +133,7 @@ class GameMenu:
         if self.ai_dropdown_open:
             self.dropdown_bg.show()
             self.ai_toggle_btn.select() 
+            self.ai_toggle_btn.update(0)
             self.play_btn.show()
             self.hint_btn.hide() 
             self.undo_btn.hide()
@@ -144,6 +147,7 @@ class GameMenu:
         else:
             self.dropdown_bg.hide()
             self.ai_toggle_btn.unselect() 
+            self.ai_toggle_btn.update(0)
             self.play_btn.hide()
             self.hint_btn.show()
             self.undo_btn.show()
@@ -158,6 +162,7 @@ class GameMenu:
         self.algo_results = {algo: None for algo in ALGORITHMS}
         self.is_playing = False
         self.play_btn.unselect()
+        self.play_btn.update(0)
         self.hint_btn.enable() 
         self.execution_cache.clear()
         self.radar_chart.update_data({}) # Clear chart snapshots
@@ -183,9 +188,11 @@ class GameMenu:
                 self.is_playing = not self.is_playing
                 if self.is_playing:
                     self.play_btn.select()
+                    self.play_btn.update(0)
                     self.hint_btn.disable() 
                 else:
                     self.play_btn.unselect()
+                    self.play_btn.update(0)
                     self.hint_btn.enable() 
                 return "PLAY_CLICKED"
             
@@ -217,10 +224,12 @@ class GameMenu:
                 if clicked_algo in self.selected_algos:
                     self.selected_algos.remove(clicked_algo)
                     self.algo_btns[clicked_algo].unselect() 
+                    self.algo_btns[clicked_algo].update(0)
                     self.result_btns[clicked_algo].hide()
                 else:
                     self.selected_algos.add(clicked_algo)
                     self.algo_btns[clicked_algo].select() 
+                    self.algo_btns[clicked_algo].update(0)
                     if self.algo_results[clicked_algo] is not None:
                         self.result_btns[clicked_algo].show()
         return None
@@ -239,20 +248,19 @@ class GameMenu:
             self.radar_chart.draw(surface, visible_algos=self.selected_algos)
             
         self.manager.draw_ui(surface)
-        mouse_down = pygame.mouse.get_pressed()[0]
         
         # Render Text Helper
-        def draw_text(text, btn, y_offset, color=(255, 255, 255)):
+        def draw_text(text, btn, color=(255, 255, 255), manual_y=None):
             surf = self.custom_font.render(text, True, color)
-            rect = surf.get_rect(centerx=btn.rect.centerx, centery=btn.rect.y + y_offset)
-            if btn.hovered and mouse_down and btn.is_enabled: rect.y += 5
+            base_y = manual_y if manual_y is not None else (37 if btn.is_selected else 32)
+            rect = surf.get_rect(centerx=btn.rect.centerx, centery=btn.rect.y + base_y)
+            if btn.held and btn.is_enabled: rect.y += 5
             surface.blit(surf, rect)
 
-        draw_text(self.current_move_text, self.move_display, 32)
+        draw_text(self.current_move_text, self.move_display)
         
         # AI Solver Button Text
-        ai_rect_y = 37 if self.ai_dropdown_open else 32
-        draw_text("AI Solver", self.ai_toggle_btn, ai_rect_y, (0, 0, 0))
+        draw_text("AI Solver", self.ai_toggle_btn, (0, 0, 0))
 
         def draw_pixel_star(surf, cx, cy, color):
             """Draws a small 5x5 pixel-art style star"""
@@ -267,12 +275,12 @@ class GameMenu:
                 self.coffee_icon.set_alpha(255)
                 surface.blit(self.coffee_icon, icon_rect)
             else:
-                draw_text("Hint", self.hint_btn, 32, (0, 0, 0))
+                draw_text("Hint", self.hint_btn, (0, 0, 0))
                 
         if self.undo_btn.visible:
-            draw_text("Undo", self.undo_btn, 32, (0, 0, 0))
+            draw_text("Undo", self.undo_btn, (0, 0, 0))
         if self.reset_btn.visible:
-            draw_text("Reset", self.reset_btn, 32, (0, 0, 0))
+            draw_text("Reset", self.reset_btn, (0, 0, 0))
         
         # Dropdown Items
         if self.ai_dropdown_open:
@@ -281,20 +289,19 @@ class GameMenu:
                 if algo.lower() == "a*":
                     # Special rendering for A*
                     display_name = "A"
-                    y_offset = 37 if algo in self.selected_algos else 32
-                    draw_text(display_name, btn, y_offset, color)
+                    draw_text(display_name, btn, color)
                     # Draw star next to A
+                    y_offset = 37 if btn.is_selected else 32
                     star_x = btn.rect.centerx + 12
                     star_y = btn.rect.y + y_offset - 10
-                    if btn.hovered and mouse_down and btn.is_enabled: star_y += 5
+                    if btn.held and btn.is_enabled: star_y += 5
                     draw_pixel_star(surface, star_x, star_y, color)
                 else:
-                    y_offset = 37 if algo in self.selected_algos else 32
-                    draw_text(algo.upper(), btn, y_offset, color)
+                    draw_text(algo.upper(), btn, color)
                 
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:
-                    draw_text(str(self.algo_results[algo]), res_btn, 32)
+                    draw_text(str(self.algo_results[algo]), res_btn)
                     
         if self.ai_dropdown_open:
             self.radar_chart.draw_tooltip(surface)
