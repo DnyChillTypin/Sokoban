@@ -9,7 +9,7 @@ from level import Level
 from player import Player
 from GameMenu import GameMenu
 from menu import SokobanMenu
-from selectLevels import LevelSelection # Import lại file chọn màn
+from selectLevels import LevelSelection
 from solver import SokobanSolver
 
 class Game:
@@ -25,7 +25,6 @@ class Game:
 
         self.start_menu = SokobanMenu(self.screen)
         
-        # --- BỔ SUNG: Khởi tạo Manager và Level Selector từ bản trước ---
         self.manager = pygame_gui.UIManager((window_width, window_height))
         self.level_selector = LevelSelection(self.screen, self.manager)
         
@@ -238,8 +237,9 @@ class Game:
             if self.game_state == "MAIN_MENU":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
-                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.game_state = "QUIT_PROMPT"
+                    elif event.type == pygame.KEYDOWN:
+                        if (event.key == pygame.K_q) and (event.mod & pygame.KMOD_SHIFT): self.quit_game()
+                        elif event.key == pygame.K_ESCAPE: self.game_state = "QUIT_PROMPT"
                         
                     menu_action = self.start_menu.handle_events(event)
                     
@@ -254,8 +254,9 @@ class Game:
             elif self.game_state == "LEVEL_SELECT":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
-                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.game_state = "MAIN_MENU"
+                    elif event.type == pygame.KEYDOWN:
+                        if (event.key == pygame.K_q) and (event.mod & pygame.KMOD_SHIFT): self.quit_game()
+                        elif event.key == pygame.K_ESCAPE: self.game_state = "MAIN_MENU"
                         
                     action, level = self.level_selector.handle_events(event)
                     if action == "START":
@@ -323,6 +324,9 @@ class Game:
     def event(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                self.quit_game()
+            
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_q and (event.mod & pygame.KMOD_SHIFT):
                 self.quit_game()
 
             action = self.menu.process_events(event)

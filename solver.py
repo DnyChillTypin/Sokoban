@@ -493,7 +493,7 @@ class SokobanSolver:
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
     def _fail_dict(self, start_time, visited, generated, fringe, aborted=False):
-        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned, 'aborted': aborted}
+        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'moves': 0, 'pruned': self.current_pruned, 'aborted': aborted}
         
     def _success_dict(self, path, start_time, visited, generated, fringe, pushes):
-        return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'pruned': self.current_pruned}
+        return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'moves': len(path), 'pruned': self.current_pruned}

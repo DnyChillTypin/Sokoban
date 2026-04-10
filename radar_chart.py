@@ -8,8 +8,8 @@ class RadarChart:
         self.radius = radius
         self.color_map = color_map
         self.font = pygame.font.Font(font_path, font_size)
-        self.metrics = ['Time', 'Nodes', 'Fringe', 'Pushes', 'Pruned']
-        self.metric_keys = ['time', 'visited', 'max_fringe', 'pushes', 'pruned']
+        self.metrics = ['Time', 'Nodes', 'Moves', 'Pushes', 'Fringe', 'Pruned']
+        self.metric_keys = ['time', 'visited', 'moves', 'pushes', 'max_fringe', 'pruned']
         self.num_metrics = len(self.metrics)
         self.angles = [-math.pi / 2 + (2 * math.pi * i) / self.num_metrics for i in range(self.num_metrics)]
         self.data_snapshots = {}
@@ -203,7 +203,7 @@ class RadarChart:
             label_text = self.metrics[i]
             lx = cx + (self.radius + 35) * math.cos(angle)
             ly = cy + (self.radius + 35) * math.sin(angle)
-            txt_surf = self.font.render(label_text, True, (200, 200, 200))
+            txt_surf = self.font.render(label_text, True, (248, 244, 239)) # Cream color
             rect = txt_surf.get_rect(center=(lx, ly))
             surface.blit(txt_surf, rect)
 
@@ -219,9 +219,11 @@ class RadarChart:
                 val = metrics.get(k, 0)
                 if val == "FAIL": val = 0
                 normalized = float(val) / bounds[k]
-                # Constant speed math: instead of normalized * scale, 
-                # we use min(normalized, scale) so every vertex moves at 1.0 units per duration.
-                dist = self.radius * min(normalized, scale)
+                
+                # AXIS_BUFFER: prevent vertices from touching the physical edge (makes differences more visible)
+                AXIS_BUFFER = 0.88 
+                dist = self.radius * (AXIS_BUFFER * min(normalized, scale))
+                
                 px = center[0] + dist * math.cos(self.angles[i])
                 py = center[1] + dist * math.sin(self.angles[i])
                 pts.append((px, py))

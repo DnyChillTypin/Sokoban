@@ -8,7 +8,7 @@ class GameMenu:
         self.manager = pygame_gui.UIManager((window_width, window_height), UI_THEME)
         self.ai_dropdown_open = False
         self.expanded = False
-        self.selected_algos = set() 
+        self.selected_algos = set(ALGORITHMS) 
         self.is_playing = False 
         
         self.algo_results = {algo: None for algo in ALGORITHMS}
