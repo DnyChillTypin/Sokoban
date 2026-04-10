@@ -15,11 +15,11 @@ class GameMenu:
         
         from radar_chart import RadarChart
         color_map = {
-            'A*': (255, 50, 50),       # Red
-            'BFS': (50, 50, 255),      # Blue
-            'DFS': (50, 255, 50),      # Green
-            'BestFS': (255, 255, 50),  # Yellow
-            'Dijkstra': (255, 130, 0)  # Orange
+            'A*': (255, 0, 80),       # Neon Red/Pink
+            'BFS': (0, 255, 255),      # Pure Cyan
+            'DFS': (0, 255, 0),        # Pure Green
+            'BestFS': (255, 255, 0),   # Hot Magenta
+            'Dijkstra': (255, 140, 0)  # Bright Orange
         }
         self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
         
