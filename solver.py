@@ -168,12 +168,17 @@ class SokobanSolver:
                 if pos not in self.nearest_distances or d < self.nearest_distances[pos]:
                     self.nearest_distances[pos] = d
             
-    def _update_spinner(self, iterations, algo_name):
+    def _update_spinner(self, iterations, algo_name, tick_callback=None):
         if iterations % 1000 == 0:
             chars = ['|', '/', '-', '\\']
             char = chars[(iterations // 1000) % 4]
             sys.stdout.write(f"\r  Crunching {algo_name}... [{char}]")
             sys.stdout.flush()
+            
+            # Pump events to prevent "Not Responding"
+            pygame.event.pump()
+            if tick_callback:
+                tick_callback()
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -304,7 +309,7 @@ class SokobanSolver:
                 pushes += 1
         return path[::-1], pushes
 
-    def solve_bfs(self, initial_state):
+    def solve_bfs(self, initial_state, tick_callback=None):
         start_time = time.time()
         self.current_pruned = 0
         queue = collections.deque([initial_state])
@@ -313,7 +318,7 @@ class SokobanSolver:
         
         while queue:
             iterations += 1
-            if self._update_spinner(iterations, "BFS") == "ABORT":
+            if self._update_spinner(iterations, "BFS", tick_callback) == "ABORT":
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
 
@@ -337,7 +342,7 @@ class SokobanSolver:
                     queue.append(next_state)
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def solve_dfs(self, initial_state):
+    def solve_dfs(self, initial_state, tick_callback=None):
         start_time = time.time()
         self.current_pruned = 0
         stack = [initial_state]
@@ -346,7 +351,7 @@ class SokobanSolver:
         
         while stack:
             iterations += 1
-            if self._update_spinner(iterations, "DFS") == "ABORT":
+            if self._update_spinner(iterations, "DFS", tick_callback) == "ABORT":
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
 
@@ -370,7 +375,7 @@ class SokobanSolver:
                     stack.append(next_state)
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def solve_astar(self, initial_state):
+    def solve_astar(self, initial_state, tick_callback=None):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         # PQ entry: (f_score, tiebreaker, state, g_score)
@@ -381,7 +386,7 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "A*") == "ABORT":
+            if self._update_spinner(iterations, "A*", tick_callback) == "ABORT":
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
 
@@ -409,7 +414,7 @@ class SokobanSolver:
                     heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def solve_best_first(self, initial_state):
+    def solve_best_first(self, initial_state, tick_callback=None):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         priority_queue = [(self.heuristic(initial_state), count, initial_state)]
@@ -418,7 +423,7 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "BestFS") == "ABORT":
+            if self._update_spinner(iterations, "BestFS", tick_callback) == "ABORT":
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
 
@@ -444,7 +449,7 @@ class SokobanSolver:
                     heapq.heappush(priority_queue, (priority, count, next_state))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10):
+    def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10, tick_callback=None):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         # PQ entry: (g_score, tiebreaker, state)
@@ -455,7 +460,7 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "Dijkstra") == "ABORT":
+            if self._update_spinner(iterations, "Dijkstra", tick_callback) == "ABORT":
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
 

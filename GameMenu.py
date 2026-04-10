@@ -1,6 +1,7 @@
 import pygame
 import pygame_gui
 from settings import *
+from button import Button
 
 class GameMenu:
     def __init__(self):
@@ -89,11 +90,19 @@ class GameMenu:
         # Algorithm & Result Buttons
         self.algo_btns = {}
         self.result_btns = {} 
+        self.algo_custom_btns = {}
         current_y = (ai_y + btn_h) + 100 
         
         for algo in ALGORITHMS:
-            self.algo_btns[algo] = self._create_btn(btn_x, current_y, btn_w, btn_h, '#algo_btn', visible=False)
+            uibtn = self._create_btn(btn_x, current_y, btn_w, btn_h, '#algo_btn', visible=False)
+            self.algo_btns[algo] = uibtn
             self.result_btns[algo] = self._create_btn(play_x + 20, current_y, play_w, btn_h, '#result_btn', visible=False)
+            
+            # --- NEW: Custom Button Objects for specialized rendering (spinners) ---
+            self.algo_custom_btns[algo] = Button(
+                rect=uibtn.rect, text=algo.upper(), 
+                font=self.custom_font, color=(255, 255, 255)
+            )
             current_y += btn_h + 15 
 
         # Expansion Toggle
@@ -287,19 +296,16 @@ class GameMenu:
         # Dropdown Items
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
-                color = (255, 255, 255)
-                if algo.lower() == "a*":
-                    # Special rendering for A*
-                    display_name = "A"
-                    draw_text(display_name, btn, color)
-                    # Draw star next to A
-                    y_offset = 37 if btn.is_selected else 32
+                custom_btn = self.algo_custom_btns[algo]
+                custom_btn.rect = btn.rect # Keep in sync
+                custom_btn.draw(surface)
+                
+                # Special Case: A* star icon
+                if algo.lower() == "a*" and not custom_btn.is_loading:
                     star_x = btn.rect.centerx + 12
-                    star_y = btn.rect.y + y_offset - 10
+                    star_y = btn.rect.y + (37 if btn.is_selected else 32) - 10
                     if btn.held and btn.is_enabled: star_y += 5
-                    draw_pixel_star(surface, star_x, star_y, color)
-                else:
-                    draw_text(algo.upper(), btn, color)
+                    draw_pixel_star(surface, star_x, star_y, (255, 255, 255))
                 
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:

@@ -181,11 +181,35 @@ class Game:
         print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
         
         for algo in self.menu.selected_algos:
-            if algo == 'BFS': result = solver.solve_bfs(current_state)
-            elif algo == 'DFS': result = solver.solve_dfs(current_state)
-            elif algo == 'A*': result = solver.solve_astar(current_state)
-            elif algo == 'BestFS': result = solver.solve_best_first(current_state)
-            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state)
+            # Custom Button State for Animation
+            btn = self.menu.algo_custom_btns[algo]
+            solver_start_time = time.time()
+            
+            # Capture the button's visual frame (border/bg) WITHOUT text
+            btn.show_text = False
+            self.menu.draw(self.screen)
+            button_snapshot = self.screen.subsurface(btn.rect).copy()
+            btn.show_text = True 
+            
+            def tick():
+                # Only show the loading spinner if calculation takes > 1 second
+                if time.time() - solver_start_time > 1.0:
+                    btn.is_loading = True
+                    # Restore the CLEAN button frame (no text) before drawing spinner
+                    self.screen.blit(button_snapshot, btn.rect)
+                    btn.draw(self.screen)
+                    pygame.display.update(btn.rect)
+
+            if algo == 'BFS': result = solver.solve_bfs(current_state, tick_callback=tick)
+            elif algo == 'DFS': result = solver.solve_dfs(current_state, tick_callback=tick)
+            elif algo == 'A*': result = solver.solve_astar(current_state, tick_callback=tick)
+            elif algo == 'BestFS': result = solver.solve_best_first(current_state, tick_callback=tick)
+            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state, tick_callback=tick)
+                
+            btn.is_loading = False
+            # Restore final UI state (puts text back)
+            self.menu.draw(self.screen)
+            pygame.display.update(btn.rect)
                 
             self.solver_results[algo] = result['path']
             full_metrics[algo] = result
