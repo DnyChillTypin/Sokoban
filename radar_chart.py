@@ -300,7 +300,6 @@ class RadarChart:
             # Mouse moved to a different item (or left all items)
             self.hovered_algo = current_hover
             self.hover_start_time = now
-        
-        # If hovering on something and enough time has passed, draw tooltip
-        if self.hovered_algo is not None and (now - self.hover_start_time) >= self.HOVER_DELAY_MS:
+            
+        if self.hovered_algo and (now - self.hover_start_time > self.HOVER_DELAY_MS):
             self._draw_tooltip(surface, self.hovered_algo, mouse_pos)

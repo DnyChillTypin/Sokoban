@@ -51,6 +51,7 @@ class Game:
         # UI Overlays
         self.font_large = pygame.font.Font(font_path, 100) 
         self.font_small = pygame.font.Font(font_path, 60)  
+        self.font_tiny = pygame.font.Font(font_path, 30)
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
 
@@ -162,6 +163,7 @@ class Game:
             self.menu.is_playing = False
             self.menu.play_btn.unselect()
             self.menu.play_btn.update(0)
+            self.menu.hint_btn.enable() # RE-ENABLE HINT BUTTON
             return
 
         print(f"\n{'='*95}\nExecuting Solver Engine...\n{'-'*95}")
@@ -302,18 +304,22 @@ class Game:
             action = self.menu.process_events(event)
 
             if self.level_complete_waiting:
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    
-                    if self.current_level_num == 'test':
-                        self.current_level_num = 0
-                    else:
-                        self.current_level_num += 1
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if self.current_level_num == 'test':
+                            self.current_level_num = 0
+                        else:
+                            self.current_level_num += 1
 
-                    if os.path.exists(f'levels/{self.current_level_num}.txt'):
+                        if os.path.exists(f'levels/{self.current_level_num}.txt'):
+                            self.load_current_level()
+                        else:
+                            print("All levels cleared!")
+                            self.quit_game()
+                    elif event.key == pygame.K_r:
                         self.load_current_level()
-                    else:
-                        print("All levels cleared!")
-                        self.quit_game()
+                    elif event.key == pygame.K_ESCAPE:
+                        self.game_state = "LEVEL_SELECT"
                 continue 
             
             if action == "RUN_SOLVER": self.execute_solvers() 
@@ -368,6 +374,9 @@ class Game:
                     continue
                 elif event.key == pygame.K_r: 
                     self.load_current_level()
+                
+                elif event.key == pygame.K_TAB:
+                    self.menu.toggle_expansion()
                 
                 elif event.key == pygame.K_z:
                     if len(self.history) > 0:
@@ -430,10 +439,35 @@ class Game:
         
         if self.level_complete_waiting:
             self.screen.blit(self.win_overlay, (0, 0))
-            self.screen.blit(self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)), 
-                             self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)).get_rect(center=(window_width // 2, (window_height // 2) - 40)))
-            self.screen.blit(self.font_small.render("Press SPACE to continue", True, (200, 200, 200)), 
-                             self.font_small.render("Press SPACE to continue", True, (200, 200, 200)).get_rect(center=(window_width // 2, (window_height // 2) + 40)))
+            
+            # Render Congrats Text
+            congrats_surf = self.font_large.render("!!! Congrats !!!", True, (255, 255, 255))
+            self.screen.blit(congrats_surf, congrats_surf.get_rect(center=(window_width // 2, (window_height // 2) - 100)))
+            
+            # Helper to draw action box
+            def draw_shortcut_box(center_x, center_y, key_txt, action_txt):
+                box_w, box_h = 240, 140
+                box_rect = pygame.Rect(0, 0, box_w, box_h)
+                box_rect.center = (center_x, center_y)
+                
+                # Draw box border only
+                pygame.draw.rect(self.screen, (200, 200, 200), box_rect, 3, border_radius=15)
+                
+                # Render Key (Top)
+                key_surf = self.font_small.render(key_txt, True, (255, 255, 255))
+                key_rect = key_surf.get_rect(center=(center_x, center_y - 25))
+                self.screen.blit(key_surf, key_rect)
+                
+                # Render Action (Bottom)
+                action_surf = self.font_tiny.render(action_txt, True, (180, 180, 180))
+                action_rect = action_surf.get_rect(center=(center_x, center_y + 35))
+                self.screen.blit(action_surf, action_rect)
+
+            # Draw boxes side by side
+            box_spacing = 150
+            draw_shortcut_box(window_width // 2 - box_spacing, (window_height // 2) + 60, "R", "restart")
+           
+            draw_shortcut_box(window_width // 2 + box_spacing, (window_height // 2) + 60, "SPACE", "continue")
 
         pygame.display.update()
 
