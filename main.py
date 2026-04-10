@@ -182,11 +182,22 @@ class Game:
             moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
             print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
             
+            # Incremental UI Update
+            self.menu.show_results(self.solver_results, full_metrics)
+            self.draw()
+            pygame.display.update()
+            
+            if result.get('aborted'):
+                print(f"Batch Execution Aborted by User!")
+                break
+                
+            pygame.time.delay(50) # Small delay to see the update
+            
         print(f"{'='*95}\n")
         
-        self.menu.show_results(self.solver_results, full_metrics)
         self.menu.is_playing = False
         self.menu.play_btn.unselect()
+        self.menu.play_btn.update(0)
         self.menu.hint_btn.enable()
 
     def run(self):

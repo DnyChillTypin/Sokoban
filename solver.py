@@ -174,7 +174,14 @@ class SokobanSolver:
             char = chars[(iterations // 1000) % 4]
             sys.stdout.write(f"\r  Crunching {algo_name}... [{char}]")
             sys.stdout.flush()
-            pygame.event.pump()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return "ABORT"
+        return None
 
     def _clear_spinner(self):
         sys.stdout.write("\r" + " " * 50 + "\r")
@@ -305,7 +312,10 @@ class SokobanSolver:
         
         while queue:
             iterations += 1
-            self._update_spinner(iterations, "BFS")
+            if self._update_spinner(iterations, "BFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0: 
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -335,7 +345,10 @@ class SokobanSolver:
         
         while stack:
             iterations += 1
-            self._update_spinner(iterations, "DFS")
+            if self._update_spinner(iterations, "DFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -367,7 +380,10 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "A*")
+            if self._update_spinner(iterations, "A*") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -401,7 +417,10 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "BestFS")
+            if self._update_spinner(iterations, "BestFS") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -435,7 +454,10 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            self._update_spinner(iterations, "Dijkstra")
+            if self._update_spinner(iterations, "Dijkstra") == "ABORT":
+                self._clear_spinner()
+                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
                 return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -464,8 +486,8 @@ class SokobanSolver:
                     heapq.heappush(priority_queue, (new_g, count, next_state))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def _fail_dict(self, start_time, visited, generated, fringe):
-        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned}
+    def _fail_dict(self, start_time, visited, generated, fringe, aborted=False):
+        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned, 'aborted': aborted}
         
     def _success_dict(self, path, start_time, visited, generated, fringe, pushes):
         return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'pruned': self.current_pruned}
