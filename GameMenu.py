@@ -295,3 +295,6 @@ class GameMenu:
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:
                     draw_text(str(self.algo_results[algo]), res_btn, 32)
+                    
+        if self.ai_dropdown_open:
+            self.radar_chart.draw_tooltip(surface)
