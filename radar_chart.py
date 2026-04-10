@@ -34,11 +34,17 @@ class RadarChart:
             if self.max_bounds[k] <= 0:
                 self.max_bounds[k] = 1.0
 
-    def draw(self, surface):
+    def draw(self, surface, visible_algos=None):
         if not self.data_snapshots:
             return
 
         cx, cy = self.center
+
+        def draw_pixel_star(surf, cx, cy, color):
+            """Draws a small 5x5 pixel-art style star"""
+            offsets = [(0,0), (0,-1), (0,1), (-1,0), (1,0), (0,-2), (0,2), (-2,0), (2,0), (-1,-1), (1,-1), (-1,1), (1,1)]
+            for dx, dy in offsets:
+                surf.set_at((cx + dx, cy + dy), color)
 
         # 1. Draw web backgrounds (wireframes)
         num_rings = 4
@@ -76,6 +82,8 @@ class RadarChart:
         for algo, metrics in self.data_snapshots.items():
             if metrics is None or not isinstance(metrics, dict):
                 continue
+            if visible_algos is not None and algo not in visible_algos:
+                continue
 
             color = self.color_map.get(algo, (255, 255, 255))
             poly_points = []
@@ -110,7 +118,7 @@ class RadarChart:
         row2_keys = ['Dijkstra', 'A*']
         
         # Helper to get active algos for a row
-        get_active = lambda keys: [(k, self.data_snapshots[k]) for k in keys if k in self.data_snapshots and isinstance(self.data_snapshots[k], dict)]
+        get_active = lambda keys: [(k, self.data_snapshots[k]) for k in keys if k in self.data_snapshots and isinstance(self.data_snapshots[k], dict) and (visible_algos is None or k in visible_algos)]
         
         row1_algos = get_active(row1_keys)
         row2_algos = get_active(row2_keys)
@@ -127,9 +135,16 @@ class RadarChart:
                 ly = start_y
                 pygame.draw.rect(surface, color, (lx, ly, 20, 20))
                 
-                display_name = algo.upper() if algo != 'A*' else 'A*' # Ensure star is preserved
-                txt_surf = self.font.render(display_name, True, (255, 255, 255))
-                surface.blit(txt_surf, (lx + 30, ly))
+                if algo.lower() == "a*":
+                    display_name = "A"
+                    txt_surf = self.font.render(display_name, True, (255, 255, 255))
+                    surface.blit(txt_surf, (lx + 30, ly))
+                    # Draw star next to A (superscript)
+                    draw_pixel_star(surface, lx + 30 + txt_surf.get_width() + 6, ly + 6, (255, 255, 255))
+                else:
+                    display_name = algo.upper()
+                    txt_surf = self.font.render(display_name, True, (255, 255, 255))
+                    surface.blit(txt_surf, (lx + 30, ly))
 
         if row1_algos:
             draw_row(row1_algos, legend_start_y)

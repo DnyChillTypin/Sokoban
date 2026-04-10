@@ -11,6 +11,7 @@ class GameMenu:
         self.is_playing = False 
         
         self.algo_results = {algo: None for algo in ALGORITHMS}
+        self.execution_cache = {}
         
         from radar_chart import RadarChart
         color_map = {
@@ -158,6 +159,7 @@ class GameMenu:
         self.is_playing = False
         self.play_btn.unselect()
         self.hint_btn.enable() 
+        self.execution_cache.clear()
         self.radar_chart.update_data({}) # Clear chart snapshots
         for res_btn in self.result_btns.values(): res_btn.hide()
 
@@ -168,7 +170,8 @@ class GameMenu:
                 self.result_btns[algo].show()
         
         if full_metrics:
-            self.radar_chart.update_data(full_metrics)
+            self.execution_cache.update(full_metrics)
+            self.radar_chart.update_data(self.execution_cache)
 
     def process_events(self, event):
         self.manager.process_events(event)
@@ -232,8 +235,8 @@ class GameMenu:
         current_width = ((window_width // 2) + 160) if self.expanded else menu_width
         surface.blit(self.bg_pattern, (0, 0), area=pygame.Rect(0, 0, current_width, window_height))
             
-        if self.expanded:
-            self.radar_chart.draw(surface)
+        if self.ai_dropdown_open:
+            self.radar_chart.draw(surface, visible_algos=self.selected_algos)
             
         self.manager.draw_ui(surface)
         mouse_down = pygame.mouse.get_pressed()[0]
@@ -250,6 +253,12 @@ class GameMenu:
         # AI Solver Button Text
         ai_rect_y = 37 if self.ai_dropdown_open else 32
         draw_text("AI Solver", self.ai_toggle_btn, ai_rect_y, (0, 0, 0))
+
+        def draw_pixel_star(surf, cx, cy, color):
+            """Draws a small 5x5 pixel-art style star"""
+            offsets = [(0,0), (0,-1), (0,1), (-1,0), (1,0), (0,-2), (0,2), (-2,0), (2,0), (-1,-1), (1,-1), (-1,1), (1,1)]
+            for dx, dy in offsets:
+                surf.set_at((cx + dx, cy + dy), color)
 
         # Hint Button / Coffee Icon
         if self.hint_btn.visible:
@@ -269,9 +278,19 @@ class GameMenu:
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
                 color = (255, 255, 255)
-                y_offset = 37 if algo in self.selected_algos else 32
-                display_name = "A*" if algo.lower() == "a*" else algo.upper()
-                draw_text(display_name, btn, y_offset, color)
+                if algo.lower() == "a*":
+                    # Special rendering for A*
+                    display_name = "A"
+                    y_offset = 37 if algo in self.selected_algos else 32
+                    draw_text(display_name, btn, y_offset, color)
+                    # Draw star next to A
+                    star_x = btn.rect.centerx + 12
+                    star_y = btn.rect.y + y_offset - 10
+                    if btn.hovered and mouse_down and btn.is_enabled: star_y += 5
+                    draw_pixel_star(surface, star_x, star_y, color)
+                else:
+                    y_offset = 37 if algo in self.selected_algos else 32
+                    draw_text(algo.upper(), btn, y_offset, color)
                 
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:
