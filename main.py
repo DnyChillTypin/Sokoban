@@ -128,7 +128,9 @@ class Game:
     def execute_hint(self):
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
-        result = solver.solve_astar(current_state)
+        
+        # Hyper-fast Weighted A* exclusively for hints
+        result = solver.solve_fast_hint(current_state, weight=5.0, timeout=2.0)
 
         if result['path']:
             self.dead_state_active = False
@@ -136,6 +138,7 @@ class Game:
             boxes = [list(b) for b in self.level.boxes]
             move_map = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
 
+            # Find the first box that is pushed in the suggested path
             for move in result['path']:
                 dx, dy = move_map[move]
                 px += dx; py += dy
@@ -145,6 +148,7 @@ class Game:
                     self.hint_timer = 2.0 
                     break
         else:
+            print("Hint Unavailable!")
             self.dead_state_active = True 
 
     def execute_solvers(self):

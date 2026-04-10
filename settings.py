@@ -34,7 +34,7 @@ textures = {
     'ground_light': 'assets/graphics/wallsFloors/FloorLight.png',
     
     # Interactables
-    'player': 'assets/graphics/ScotterBlue.png',
+    'player': 'assets/graphics/ScotterWhite.png',
     'box': 'assets/graphics/interactables/BoxYallow.png',
     'box_on_target': 'assets/graphics/interactables/BoxGreen.png', 
     'target': 'assets/graphics/interactables/ButtonUpYallow.png',

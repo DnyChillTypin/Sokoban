@@ -414,6 +414,49 @@ class SokobanSolver:
                     heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
+    def solve_fast_hint(self, initial_state, weight=5.0, timeout=2.0):
+        """
+        Hyper-fast Weighted A* exclusively for the hint system.
+        Designed to return a result almost instantaneously by being greedy.
+        """
+        start_time = time.time()
+        count = 0; self.current_pruned = 0
+        
+        # PQ entry: (f_score, tiebreaker, state, g_score)
+        priority_queue = [(weight * self.heuristic(initial_state), count, initial_state, 0)]
+        came_from = {initial_state: None}
+        cost_so_far = {initial_state: 0}
+        nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
+        
+        while priority_queue:
+            iterations += 1
+            # Keep OS happy every 5000 iterations and check timeout
+            if iterations % 5000 == 0:
+                pygame.event.pump()
+                if time.time() - start_time > timeout:
+                    return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+            max_fringe = max(max_fringe, len(priority_queue))
+            _, _, state, g = heapq.heappop(priority_queue)
+            nodes_visited += 1
+            
+            if self.is_goal_state(state):
+                path, pushes = self._reconstruct_path(state, came_from)
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                
+            for move, is_push, next_state in self.get_valid_moves(state):
+                new_cost = g + 1
+                if next_state not in cost_so_far or new_cost < cost_so_far[next_state]:
+                    cost_so_far[next_state] = new_cost
+                    came_from[next_state] = (state, move, is_push)
+                    count += 1
+                    nodes_generated += 1
+                    # Weighted A* priority: f = g + weight * h
+                    priority = new_cost + (weight * self.heuristic(next_state))
+                    heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
+                    
+        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
     def solve_best_first(self, initial_state, tick_callback=None):
         start_time = time.time()
         count = 0; self.current_pruned = 0
