@@ -20,26 +20,16 @@ class LevelSelection:
         self.dark_overlay.fill((0, 0, 0))
         self.dark_overlay.set_alpha(150)
 
-        self.available_levels = []
-        if os.path.exists("levels/test.txt"):
-            self.available_levels.append('test')
-        
-        idx = 0
-        while os.path.exists(f"levels/{idx}.txt"):
-            self.available_levels.append(idx)
-            idx += 1
-            
-        if not self.available_levels:
-            self.available_levels = [0]
-
-        self.current_level_idx = 0
-        self.current_level = self.available_levels[self.current_level_idx]
+        self.current_level = 0
         self.selected_level = None
 
         self.level_cache = {}
 
         self._setup_ui()
         self._load_level_preview()
+
+        self.hover_scale = 1.0
+        self.hover_alpha = 0
 
     def _setup_ui(self):
         btn_w = 80
@@ -83,11 +73,9 @@ class LevelSelection:
         return pattern
 
     def _load_level_preview(self):
-        self.current_level = self.available_levels[self.current_level_idx]
         if self.current_level not in self.level_cache:
             if not os.path.exists(f"levels/{self.current_level}.txt"):
-                self.current_level_idx = 0
-                self.current_level = self.available_levels[self.current_level_idx]
+                self.current_level = 0
 
             if self.current_level not in self.level_cache:
                 self.level_cache[self.current_level] = Level(self.current_level)
@@ -129,12 +117,6 @@ class LevelSelection:
             preview_h
         )
 
-    def shift_focus(self, offset):
-        old_idx = self.current_level_idx
-        self.current_level_idx = max(0, min(len(self.available_levels) - 1, self.current_level_idx + offset))
-        if old_idx != self.current_level_idx:
-            self._load_level_preview()
-
     def handle_events(self, event):
         self.manager.process_events(event)
 
@@ -144,44 +126,67 @@ class LevelSelection:
                 if self.preview_rect.collidepoint(mouse_pos):
                     return "START", self.current_level
 
-        if event.type == pygame.KEYDOWN:
-            alt_pressed = bool(pygame.key.get_mods() & (pygame.KMOD_LALT | pygame.KMOD_RALT))
-            nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
-            nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
-            
-            if nav_left: # Shifts on A, Left, or Alt+A, Alt+Left
-                self.shift_focus(-1)
-            elif nav_right: # Shifts on D, Right, or Alt+D, Alt+Right
-                self.shift_focus(1)
-            elif event.key == pygame.K_RETURN:
-                return "START", self.current_level
-
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
+
             if event.ui_element == self.left_btn:
-                self.shift_focus(-1)
+                self.current_level = max(0, self.current_level - 1)
+                self._load_level_preview()
+
             elif event.ui_element == self.right_btn:
-                self.shift_focus(1)
+                self.current_level += 1
+                self._load_level_preview()
+
             elif event.ui_element == self.home_btn:
                 return "HOME", self.current_level
         return None, None
 
     def draw(self):
         self.screen.blit(self.bg_pattern, (0, 0))
-
         self.screen.blit(self.dark_overlay, (0, 0))
 
-        self.screen.blit(self.preview_img, self.preview_rect)
+        mouse_pos = pygame.mouse.get_pos()
+        hover = self.preview_rect.collidepoint(mouse_pos)
+
+        if hover:
+            self.hover_alpha = min(100, self.hover_alpha + 10)
+        else:
+            self.hover_alpha = max(0, self.hover_alpha - 10)
+
+        # 🔹 3. vẽ map sau khi có scale mới
+        scaled_w = int(self.preview_rect.width * self.hover_scale)
+        scaled_h = int(self.preview_rect.height * self.hover_scale)
+
+        scaled_img = pygame.transform.smoothscale(self.preview_img, (scaled_w, scaled_h))
+
+        draw_x = self.preview_rect.centerx - scaled_w // 2
+        draw_y = self.preview_rect.centery - scaled_h // 2
+
+        self.screen.blit(scaled_img, (draw_x, draw_y))
+
+        # 🔹 overlay sáng
+        if self.hover_alpha > 0:
+            highlight = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+            highlight.fill((255, 255, 255, self.hover_alpha))
+            self.screen.blit(highlight, (draw_x, draw_y))
+
+
+        if hover:
+            pygame.draw.rect(
+                self.screen,
+                (100, 180, 255),
+                (draw_x, draw_y, scaled_w, scaled_h),
+                3,
+                border_radius=10
+            )
 
         font = pygame.font.Font(font_path, 80)
 
-        level_name = "TEST LEVEL" if self.current_level == 'test' else f"LEVEL {self.current_level + 1}"
-
         txt = font.render(
-            level_name, True, (0, 255, 127)
+            f"LEVEL {self.current_level + 1}", True, (0, 255, 127)
         )
 
         shadow = font.render(
-            level_name, True, (0, 50, 0)
+            f"LEVEL {self.current_level + 1}", True, (0, 50, 0)
         )
 
         TITLE_Y = 80

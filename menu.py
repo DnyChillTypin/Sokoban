@@ -1,6 +1,7 @@
 import pygame
 import pygame_gui
 import os
+import math
 from settings import *
 
 class SokobanMenu:
@@ -8,11 +9,13 @@ class SokobanMenu:
         self.window = screen
         self.manager = pygame_gui.UIManager((window_width, window_height), UI_THEME)
         self.state = "MAIN"
-        
-        self.TITLE_GREEN = (0, 255, 127) 
+
+        self.anim_time = 0
+
+        self.TITLE_GREEN = (0, 255, 127)
         self.TITLE_YELLOW = (255, 255, 0)
         self.DARK_SHADOW = (0, 50, 0)
-        
+
         pygame.mixer.init()
         try:
             self.music = pygame.mixer.Sound('assets/Music.mp3')
@@ -54,10 +57,10 @@ class SokobanMenu:
         self.manager.clear_and_reset()
         curr_w, curr_h = self.window.get_size()
         self.manager.set_window_resolution((curr_w, curr_h))
-        
+
         btn_w, btn_h = 420, 95
         cx = curr_w // 2 - btn_w // 2
-        
+
         if self.state == "MAIN":
             # Căn giữa theo chiều dọc dựa trên curr_h
             start_y = curr_h // 2 - 100
@@ -71,7 +74,7 @@ class SokobanMenu:
             box_w, box_h = int(curr_w * 0.6), int(curr_h * 0.4)
             box_x = curr_w // 2 - box_w // 2
             box_y = curr_h // 2 - box_h // 2
-            
+
             # Nội dung hướng dẫn cho người chơi
             text = ("<font color='#FFFFFF' size=5><b>HƯỚNG DẪN CHƠI:</b><br><br>"
                     "- <b>Di chuyển:</b> Sử dụng các phím mũi tên hoặc W, A, S, D.<br>"
@@ -79,31 +82,31 @@ class SokobanMenu:
                     "- <b>Chơi lại:</b> Nhấn phím <b>R</b> nếu bạn bị kẹt.<br>"
                     "- <b>Hoàn tác:</b> Nhấn phím <b>Z</b> để lùi lại một bước.<br>"
                     "- <b>Gợi ý:</b> Nhấn nút <b>HINT</b> để xem AI chỉ cách di chuyển.</font>")
-            
+
             self.help_box = pygame_gui.elements.UITextBox(
-                html_text=text, 
+                html_text=text,
                 manager=self.manager,
                 relative_rect=pygame.Rect((box_x, box_y), (box_w, box_h)))
-            
+
             # Nút BACK luôn nằm dưới hộp văn bản và cách cạnh dưới an toàn
             self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
 
         elif self.state == "OPTIONS":
             # Đẩy các option lên cao hơn
-            self.music_btn = self._create_btn(cx, 280, btn_w, btn_h, 
+            self.music_btn = self._create_btn(cx, 280, btn_w, btn_h,
                                             f"MUSIC: {'ON' if self.is_music_on else 'OFF'}", "#ai_btn")
-            self.sfx_btn = self._create_btn(cx, 385, btn_w, btn_h, 
+            self.sfx_btn = self._create_btn(cx, 385, btn_w, btn_h,
                                            f"SOUND FX: {'ON' if self.is_sfx_on else 'OFF'}", "#ai_btn")
-            
+
             self.res_label = pygame_gui.elements.UILabel(
                 relative_rect=pygame.Rect((cx, 500), (btn_w, 40)),
                 text="RESOLUTION", manager=self.manager, object_id="#ai_btn")
-            
+
             self.res_drop = pygame_gui.elements.UIDropDownMenu(
                 options_list=["1600x900", "1280x720", "Fullscreen"],
                 starting_option=f"{curr_w}x{curr_h}" if not (self.window.get_flags() & pygame.FULLSCREEN) else "Fullscreen",
                 relative_rect=pygame.Rect((cx, 550), (btn_w, 50)), manager=self.manager)
-            
+
             # QUAN TRỌNG: Nút BACK luôn cách cạnh dưới 120 pixel
             self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
 
@@ -119,7 +122,7 @@ class SokobanMenu:
             w, h = map(int, resolution_str.split('x'))
             os.environ['SDL_VIDEO_CENTERED'] = '1' # Đảm bảo ra giữa màn hình
             pygame.display.set_mode((w, h))
-        
+
         self.bg_pattern = self.create_bg_pattern()
         self.setup_ui()
 
@@ -153,8 +156,9 @@ class SokobanMenu:
 
     def draw(self, time_delta):
         self.window.blit(self.bg_pattern, (0, 0))
+        self.anim_time += time_delta
         curr_w, curr_h = self.window.get_size()
-        
+
         font_title = pygame.font.Font(font_path, int(130 * (curr_h/900))) # Co giãn font theo màn hình
         title_surf = font_title.render("SOKOBAN", True, self.TITLE_GREEN)
         title_rect = title_surf.get_rect(center=(curr_w // 2, curr_h * 0.2)) # Tiêu đề luôn ở 20% chiều cao
@@ -163,11 +167,31 @@ class SokobanMenu:
         self.window.blit(title_surf, title_rect)
 
         if self.state == "MAIN":
-            if self.char_img: 
-                # Icon tự động lùi ra xa nếu màn hình hẹp
-                self.window.blit(self.char_img, (curr_w * 0.1, curr_h * 0.4))
-            if self.box_img: 
-                self.window.blit(self.box_img, (curr_w * 0.7, curr_h * 0.4))
-        
+            amp = 20
+            speed = 2
+            angle = math.radians(25)
+
+            t = self.anim_time * speed
+
+            # 🔹 player
+            dx = math.cos(angle) * math.sin(t) * amp
+            dy = math.sin(angle) * math.sin(t) * amp
+
+            if self.char_img:
+                self.window.blit(
+                    self.char_img,
+                    (curr_w * 0.1 + dx, curr_h * 0.4 + dy)
+                )
+
+            t2 = t + 1.5
+            dx2 = math.cos(angle) * math.sin(t2) * amp
+            dy2 = math.sin(angle) * math.sin(t2) * amp
+
+            if self.box_img:
+                self.window.blit(
+                    self.box_img,
+                    (curr_w * 0.7 + dx2, curr_h * 0.4 + dy2)
+                )
+
         self.manager.update(time_delta)
         self.manager.draw_ui(self.window)
