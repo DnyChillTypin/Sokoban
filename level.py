@@ -10,6 +10,7 @@ class Level:
         self.boxes = []
         self.columns = 0
         self.rows = 0
+        self.targets = set() # Store target grid coords (x, y)
 
         self. player_start_x = 0
         self.player_start_y = 0
@@ -78,6 +79,10 @@ class Level:
                 elif tile_val == '4':
                     self.boxes.append([col_index, row_index])
                     clean_row.append('3')
+
+                elif tile_val == '3':
+                    self.targets.add((col_index, row_index))
+                    clean_row.append(tile_val)
 
                 else:
                     clean_row.append(tile_val)

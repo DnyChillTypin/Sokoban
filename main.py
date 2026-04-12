@@ -11,6 +11,7 @@ from GameMenu import GameMenu
 from menu import SokobanMenu
 from selectLevels import LevelSelection
 from solver import SokobanSolver
+from particles import ParticleManager
 
 class Game:
     def __init__(self):
@@ -45,6 +46,7 @@ class Game:
         self.hint_box_pos = None
         self.dead_state_active = False 
         
+        self.particle_manager = ParticleManager()
         self._load_scaled_textures()
 
         # UI Overlays
@@ -116,12 +118,20 @@ class Game:
             old_x, old_y = self.player.x, self.player.y
             old_boxes = [list(box) for box in self.level.boxes] 
             
-            self.player.move(dx, dy, self.level)
+            pushed_box_pos = self.player.move(dx, dy, self.level)
             
             if self.player.x != old_x or self.player.y != old_y:
                 self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
                 self.moves_count += 1
                 self.menu.update_moves(self.moves_count, self.current_level_num)
+
+                # Confetti Burst Trick: If a box was pushed onto a target, trigger burst
+                if pushed_box_pos and pushed_box_pos in self.level.targets:
+                    bx, by = pushed_box_pos
+                    pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
+                    pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
+                    self.particle_manager.burst(pixel_x, pixel_y, count=30)
+                    
             return True 
         return False
 
@@ -419,6 +429,7 @@ class Game:
 
     def update(self, time_delta):
         self.menu.update(time_delta)
+        self.particle_manager.update(time_delta)
         
         if self.hint_timer > 0:
             self.hint_timer -= time_delta
@@ -467,6 +478,7 @@ class Game:
                 self.map_surface.blit(self.red_box_img, (px * scaled_tile, py * scaled_tile))
 
         self.screen.blit(self.map_surface, self.map_rect)
+        self.particle_manager.draw(self.screen)
         self.menu.draw(self.screen)
         
         if self.level_complete_waiting:
