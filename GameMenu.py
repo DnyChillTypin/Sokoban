@@ -14,6 +14,7 @@ class GameMenu:
         self.algo_results = {algo: None for algo in ALGORITHMS}
         self.execution_cache = {}
         self.active_solvers = {} # Dict mapping algo_name -> generator
+        self.started_batch = False # NEW: Track batch completion for terminal reporting
         
         from radar_chart import RadarChart
         color_map = {
@@ -258,6 +259,7 @@ class GameMenu:
         
         # Generator Ticking - Process active solvers
         if self.active_solvers:
+            self.started_batch = True
             finished_this_frame = []
             for algo_name, generator in list(self.active_solvers.items()):
                 try:
@@ -302,6 +304,34 @@ class GameMenu:
                 self.play_btn.unselect()
                 self.play_btn.update(0)
                 self.hint_btn.enable()
+                
+                # NEW: Print the terminal summary table once the entire batch is complete
+                if self.started_batch:
+                    self._print_execution_summary()
+                    self.started_batch = False
+
+    def _print_execution_summary(self):
+        """Prints a professional batch summary table to the terminal."""
+        print(f"\n{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}")
+        print("-" * 95)
+        
+        # Sort based on the predefined ALGORITHMS list for consistent ordering
+        for algo in ALGORITHMS:
+            if algo in self.execution_cache:
+                m = self.execution_cache[algo]
+                time_val = f"{m['time']:.4f}"
+                visited = str(m['visited'])
+                generated = str(m['generated'])
+                mem = str(m['max_fringe'])
+                pruned = str(m['pruned'])
+                
+                # Consistent FAIL reporting
+                path = m.get('path')
+                moves = str(len(path)) if path is not None else "FAIL"
+                pushes = str(m['pushes']) if path is not None else "FAIL"
+                
+                print(f"{algo:<12} | {time_val:<10} | {visited:<10} | {generated:<10} | {mem:<10} | {pruned:<8} | {pushes:<8} | {moves:<8}")
+        print(f"{'-'*95}\n")
 
     def draw(self, surface):
         if self.expanded:
