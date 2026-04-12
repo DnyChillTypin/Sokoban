@@ -13,6 +13,7 @@ class GameMenu:
         
         self.algo_results = {algo: None for algo in ALGORITHMS}
         self.execution_cache = {}
+        self.active_solvers = {} # Dict mapping algo_name -> generator
         
         from radar_chart import RadarChart
         color_map = {
@@ -174,6 +175,9 @@ class GameMenu:
         self.play_btn.update(0)
         self.hint_btn.enable() 
         self.execution_cache.clear()
+        self.active_solvers.clear() # Kill all running generators
+        for btn in self.algo_btns.values(): btn.enable()
+        for c_btn in self.algo_custom_btns.values(): c_btn.is_loading = False
         self.radar_chart.reset() 
         for res_btn in self.result_btns.values(): res_btn.hide()
 
@@ -231,6 +235,10 @@ class GameMenu:
             elif ui in self.algo_btns.values():
                 clicked_algo = next((name for name, btn in self.algo_btns.items() if btn == ui), None)
                 
+                # --- NEW: Disable interaction if already running ---
+                if clicked_algo and self.algo_custom_btns[clicked_algo].is_loading:
+                    return None
+
                 if clicked_algo in self.selected_algos:
                     self.selected_algos.remove(clicked_algo)
                     self.algo_btns[clicked_algo].unselect() 
@@ -247,6 +255,53 @@ class GameMenu:
     def update(self, time_delta):
         self.manager.update(time_delta)
         self.radar_chart.update(time_delta)
+        
+        # Generator Ticking - Process active solvers
+        if self.active_solvers:
+            finished_this_frame = []
+            for algo_name, generator in list(self.active_solvers.items()):
+                try:
+                    # Capture one 'chunk' of search work
+                    status, result = next(generator)
+                    
+                    if status == "DONE":
+                        # 1. Save to execution cache for radar chart and replay
+                        self.execution_cache[algo_name] = result
+                        
+                        # 2. Update UI result displays
+                        path = result.get('path')
+                        self.algo_results[algo_name] = len(path) if path is not None else "FAIL"
+                        if self.ai_dropdown_open:
+                            self.result_btns[algo_name].show()
+                            
+                        # 3. Queue for Radar Chart animation
+                        self.radar_chart.add_to_queue(algo_name, result)
+                        
+                        # 4. Mark for removal from active list
+                        finished_this_frame.append(algo_name)
+                        
+                        # 5. Visual polish: stop loading spinner
+                        self.algo_custom_btns[algo_name].is_loading = False
+                        self.algo_btns[algo_name].enable()
+                        
+                except (StopIteration, Exception) as e:
+                    if not isinstance(e, StopIteration):
+                        print(f"Error in solver {algo_name}: {e}")
+                    finished_this_frame.append(algo_name)
+                    self.algo_custom_btns[algo_name].is_loading = False
+                    self.algo_btns[algo_name].enable()
+
+            # Cleanup
+            for algo in finished_this_frame:
+                if algo in self.active_solvers:
+                    del self.active_solvers[algo]
+                    
+            # Auto-unselect play button if all work is done
+            if not self.active_solvers and self.is_playing:
+                self.is_playing = False
+                self.play_btn.unselect()
+                self.play_btn.update(0)
+                self.hint_btn.enable()
 
     def draw(self, surface):
         if self.expanded:

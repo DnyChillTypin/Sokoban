@@ -32,7 +32,6 @@ class Game:
         self.game_state = "MAIN_MENU"
 
         self.menu = GameMenu()
-        self.solver_results = {}
         
         # Playback Variables
         self.is_playing_back = False
@@ -171,15 +170,16 @@ class Game:
         # If all selected algorithms already have cached results, just replay the animation
         cached_algos = {algo: self.menu.execution_cache[algo] for algo in self.menu.selected_algos if algo in self.menu.execution_cache}
         if len(cached_algos) == len(self.menu.selected_algos) and len(cached_algos) > 0:
-            print(f"Replaying cached results for: {', '.join(cached_algos.keys())}")
             self.menu.radar_chart.trigger_replay(cached_algos)
             self.menu.is_playing = False
             self.menu.play_btn.unselect()
             self.menu.play_btn.update(0)
-            self.menu.hint_btn.enable() # RE-ENABLE HINT BUTTON
+            self.menu.hint_btn.enable() 
             return
 
-        print(f"\n{'='*95}\nExecuting Solver Engine...\n{'-'*95}")
+        print(f"\n{'='*95}\nInitializing Multitasking Solver Engine...\n{'-'*95}")
+        print(f"{'Algorithm':<12} | Status")
+        print(f"{'-'*95}")
         
         self.saved_solver_state = {
             'player': (self.player.x, self.player.y),
@@ -188,61 +188,29 @@ class Game:
         
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
-        self.solver_results.clear()
-        full_metrics = {}
         
-        print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
+        num_algos = len(self.menu.selected_algos)
+        for i, algo in enumerate(self.menu.selected_algos):
+            # Calculate offset from the bottom of the "Initializing..." block
+            # Each algo prints one line, then a footer of 2 lines is added.
+            # Offset = (Total Algos - current index) + 1
+            offset = (num_algos - i) + 1
+            
+            # Initialize Generator with line offset
+            gen = None
+            if algo == 'BFS': gen = solver.solve_bfs(current_state, line_offset=offset)
+            elif algo == 'DFS': gen = solver.solve_dfs(current_state, line_offset=offset)
+            elif algo == 'A*': gen = solver.solve_astar(current_state, line_offset=offset)
+            elif algo == 'BestFS': gen = solver.solve_best_first(current_state, line_offset=offset)
+            elif algo == 'Dijkstra': gen = solver.solve_dijkstra(current_state, line_offset=offset)
+            
+            if gen:
+                self.menu.active_solvers[algo] = gen
+                self.menu.algo_custom_btns[algo].is_loading = True
+                self.menu.algo_btns[algo].disable() # Disable interaction while running
+                print(f"{algo:<12} | RUNNING (Cooperative Mode)")
         
-        for algo in self.menu.selected_algos:
-            # Custom Button State for Animation
-            btn = self.menu.algo_custom_btns[algo]
-            solver_start_time = time.time()
-            
-            # Capture the button's visual frame (border/bg) WITHOUT text
-            btn.show_text = False
-            self.menu.draw(self.screen)
-            button_snapshot = self.screen.subsurface(btn.rect).copy()
-            btn.show_text = True 
-            
-            def tick():
-                # Only show the loading spinner if calculation takes > 1 second
-                if time.time() - solver_start_time > 1.0:
-                    btn.is_loading = True
-                    # Restore the CLEAN button frame (no text) before drawing spinner
-                    self.screen.blit(button_snapshot, btn.rect)
-                    btn.draw(self.screen)
-                    pygame.display.update(btn.rect)
-
-            if algo == 'BFS': result = solver.solve_bfs(current_state, tick_callback=tick)
-            elif algo == 'DFS': result = solver.solve_dfs(current_state, tick_callback=tick)
-            elif algo == 'A*': result = solver.solve_astar(current_state, tick_callback=tick)
-            elif algo == 'BestFS': result = solver.solve_best_first(current_state, tick_callback=tick)
-            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state, tick_callback=tick)
-                
-            btn.is_loading = False
-            # Restore final UI state (puts text back)
-            self.menu.draw(self.screen)
-            pygame.display.update(btn.rect)
-                
-            self.solver_results[algo] = result['path']
-            full_metrics[algo] = result
-            
-            moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
-            print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
-            
-            # Incremental Results Update (Animations are now non-blocking)
-            self.menu.show_results(self.solver_results, full_metrics)
-            
-            if result.get('aborted'):
-                print(f"Batch Execution Aborted by User!")
-                break
-            
         print(f"{'='*95}\n")
-        
-        self.menu.is_playing = False
-        self.menu.play_btn.unselect()
-        self.menu.play_btn.update(0)
-        self.menu.hint_btn.enable()
 
     def run(self):
         while self.running:
@@ -378,12 +346,13 @@ class Game:
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
-                if self.solver_results[algo]:
+                result = self.menu.execution_cache.get(algo)
+                if result and result.get('path'):
                     if self.saved_solver_state:
                         self.player.x, self.player.y = self.saved_solver_state['player']
                         self.level.boxes = [list(box) for box in self.saved_solver_state['boxes']]
                     
-                    self.playback_path = self.solver_results[algo].copy()
+                    self.playback_path = result['path'].copy()
                     self.is_playing_back = True
                     self.playback_timer = pygame.time.get_ticks()
                     if self.menu.expanded: self.menu.toggle_expansion() 
@@ -412,7 +381,13 @@ class Game:
                 if self.handle_movement_input(event.key): continue
 
                 if event.key == pygame.K_ESCAPE: 
-                    self.game_state = "LEVEL_SELECT"
+                    if self.menu.active_solvers:
+                        self.menu.active_solvers.clear()
+                        for btn in self.menu.algo_custom_btns.values(): btn.is_loading = False
+                        for btn in self.menu.algo_btns.values(): btn.enable()
+                        print("Execution Aborted globally via ESC!")
+                    else:
+                        self.game_state = "LEVEL_SELECT"
                     continue
                 elif event.key == pygame.K_r: 
                     self.load_current_level()
