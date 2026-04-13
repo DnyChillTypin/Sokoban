@@ -12,6 +12,7 @@ from menu import SokobanMenu
 from selectLevels import LevelSelection
 from solver import SokobanSolver
 from particles import ParticleManager
+from tween import TweenManager, ease_out_bounce, ease_out_quad
 
 class Game:
     def __init__(self):
@@ -24,8 +25,11 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        self.tween_manager = TweenManager()
+        self.menu_button_rect = pygame.Rect(300, -100, 200, 50)
+
         self.start_menu = SokobanMenu(self.screen)
-        
+
         self.manager = pygame_gui.UIManager((window_width, window_height))
         self.level_selector = LevelSelection(self.screen, self.manager)
         
@@ -63,7 +67,42 @@ class Game:
 
         self.moves_count = 0
         self.load_current_level()
+    def trigger_menu_animation(self):
+        # 2. Add a tween! 
+        # Move menu_button_rect.y to 250, over 0.8 seconds, with a bounce effect.
+        self.tween_manager.add_tween(
+            target=self.menu_button_rect, 
+            attribute='y', 
+            end_val=250, 
+            duration=0.8, 
+            easing_func=ease_out_bounce
+        )
 
+    def run(self):
+        running = True
+        
+        # Trigger it right as the game starts for testing
+        self.trigger_menu_animation()
+
+        while running:
+            # Get delta time in seconds
+            dt = self.clock.tick(60) / 1000.0 
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            # 3. Update the manager every frame BEFORE drawing
+            self.tween_manager.update(dt)
+
+            # --- DRAWING ---
+            self.screen.fill((30, 30, 30))
+            
+            # Draw the button. You will see it smoothly bounce into place!
+            pygame.draw.rect(self.screen, (200, 50, 50), self.menu_button_rect)
+            
+            pygame.display.flip()
+            
     def _load_scaled_textures(self):
         """Helper to scale UI images cleanly"""
         def scale_img(path):
