@@ -153,6 +153,8 @@ class GameMenu:
             }
             self.algo_custom_btns[algo].is_loading = False
             self.algo_btns[algo].enable()
+            if algo in self.selected_algos:
+                self.algo_btns[algo].select()
             
         self.active_solvers.clear()
         self.is_playing = False
@@ -309,9 +311,11 @@ class GameMenu:
                         # 4. Mark for removal from active list
                         finished_this_frame.append(algo_name)
                         
-                        # 5. Visual polish: stop loading spinner
+                        # 5. Visual polish: stop loading spinner and restore selection state
                         self.algo_custom_btns[algo_name].is_loading = False
                         self.algo_btns[algo_name].enable()
+                        if algo_name in self.selected_algos:
+                            self.algo_btns[algo_name].select()
                         
                 except (StopIteration, Exception) as e:
                     if not isinstance(e, StopIteration):
@@ -319,6 +323,8 @@ class GameMenu:
                     finished_this_frame.append(algo_name)
                     self.algo_custom_btns[algo_name].is_loading = False
                     self.algo_btns[algo_name].enable()
+                    if algo_name in self.selected_algos:
+                        self.algo_btns[algo_name].select()
 
             # Cleanup
             for algo in finished_this_frame:

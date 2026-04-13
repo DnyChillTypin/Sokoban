@@ -56,16 +56,36 @@ class Level:
             lines = file.readlines()
 
         lines = [line.strip() for line in lines if line.strip()]
+        
+        # --- NEW: Defensive check for empty or corrupted files ---
+        if not lines:
+            print(f"Warning: Level file {file_path} is empty. Using default 1x1 grid.")
+            self.columns, self.rows = 1, 1
+            self.grid = [['1']]
+            return
 
         #line 0
         dimensions = lines[0].split()
+        if len(dimensions) < 2:
+            print(f"Warning: Malformed dimensions in {file_path}")
+            self.columns, self.rows = 1, 1
+            self.grid = [['1']]
+            return
+
         self.columns = int(dimensions[0])
         self.rows = int(dimensions[1])
 
         #line 1
-        player_pos = lines[1].split()
-        self.player_start_x = int(player_pos[0])
-        self.player_start_y = int(player_pos[1])
+        if len(lines) < 2:
+            print(f"Warning: No player position in {file_path}")
+            self.player_start_x, self.player_start_y = 0, 0
+        else:
+            player_pos = lines[1].split()
+            if len(player_pos) >= 2:
+                self.player_start_x = int(player_pos[0])
+                self.player_start_y = int(player_pos[1])
+            else:
+                self.player_start_x, self.player_start_y = 0, 0
 
         for row_index, row_string in enumerate(lines[2:]):
             row_data = row_string.split()

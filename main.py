@@ -129,6 +129,9 @@ class Game:
                 self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
                 self.moves_count += 1
                 self.menu.update_moves(self.moves_count, self.current_level_num)
+                
+                # --- NEW: Invalidate results as soon as state changes ---
+                self.menu.reset_ai_menu()
 
                 # Confetti Burst Trick: If a box was pushed onto a target, trigger burst
                 if pushed_box_pos and pushed_box_pos in self.level.targets:
@@ -347,6 +350,7 @@ class Game:
                     self.player.x, self.player.y = last_state['player']
                     self.level.boxes = [list(box) for box in last_state['boxes']]
                     self._reset_hint_state()
+                    self.menu.reset_ai_menu() # Invalidate results on UI undo
             elif action == "RESET_CLICKED": 
                 self.load_current_level()
 
@@ -405,6 +409,7 @@ class Game:
                         self.player.x, self.player.y = last_state['player']
                         self.level.boxes = [list(box) for box in last_state['boxes']]
                         self._reset_hint_state()
+                        self.menu.reset_ai_menu() # Invalidate results on shortcut undo
 
     def update(self, time_delta):
         self.menu.update(time_delta)
