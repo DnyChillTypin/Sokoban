@@ -9,8 +9,9 @@ from level import Level
 from player import Player
 from GameMenu import GameMenu
 from menu import SokobanMenu
-from selectLevels import LevelSelection # Import lại file chọn màn
+from selectLevels import LevelSelection
 from solver import SokobanSolver
+from particles import ParticleManager
 
 class Game:
     def __init__(self):
@@ -25,14 +26,12 @@ class Game:
 
         self.start_menu = SokobanMenu(self.screen)
         
-        # --- BỔ SUNG: Khởi tạo Manager và Level Selector từ bản trước ---
         self.manager = pygame_gui.UIManager((window_width, window_height))
         self.level_selector = LevelSelection(self.screen, self.manager)
         
         self.game_state = "MAIN_MENU"
 
         self.menu = GameMenu()
-        self.solver_results = {}
         
         # Playback Variables
         self.is_playing_back = False
@@ -46,11 +45,13 @@ class Game:
         self.hint_box_pos = None
         self.dead_state_active = False 
         
+        self.particle_manager = ParticleManager()
         self._load_scaled_textures()
 
         # UI Overlays
         self.font_large = pygame.font.Font(font_path, 100) 
         self.font_small = pygame.font.Font(font_path, 60)  
+        self.font_tiny = pygame.font.Font(font_path, 30)
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
 
@@ -116,19 +117,29 @@ class Game:
             old_x, old_y = self.player.x, self.player.y
             old_boxes = [list(box) for box in self.level.boxes] 
             
-            self.player.move(dx, dy, self.level)
+            pushed_box_pos = self.player.move(dx, dy, self.level)
             
             if self.player.x != old_x or self.player.y != old_y:
                 self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
                 self.moves_count += 1
                 self.menu.update_moves(self.moves_count, self.current_level_num)
+
+                # Confetti Burst Trick: If a box was pushed onto a target, trigger burst
+                if pushed_box_pos and pushed_box_pos in self.level.targets:
+                    bx, by = pushed_box_pos
+                    pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
+                    pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
+                    self.particle_manager.burst(pixel_x, pixel_y, count=30)
+                    
             return True 
         return False
 
     def execute_hint(self):
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
-        result = solver.solve_astar(current_state)
+        
+        # Hyper-fast Weighted A* exclusively for hints
+        result = solver.solve_fast_hint(current_state, weight=5.0, timeout=2.0)
 
         if result['path']:
             self.dead_state_active = False
@@ -136,6 +147,7 @@ class Game:
             boxes = [list(b) for b in self.level.boxes]
             move_map = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
 
+            # Find the first box that is pushed in the suggested path
             for move in result['path']:
                 dx, dy = move_map[move]
                 px += dx; py += dy
@@ -145,6 +157,7 @@ class Game:
                     self.hint_timer = 2.0 
                     break
         else:
+            print("Hint Unavailable!")
             self.dead_state_active = True 
 
     def execute_solvers(self):
@@ -157,14 +170,16 @@ class Game:
         # If all selected algorithms already have cached results, just replay the animation
         cached_algos = {algo: self.menu.execution_cache[algo] for algo in self.menu.selected_algos if algo in self.menu.execution_cache}
         if len(cached_algos) == len(self.menu.selected_algos) and len(cached_algos) > 0:
-            print(f"Replaying cached results for: {', '.join(cached_algos.keys())}")
             self.menu.radar_chart.trigger_replay(cached_algos)
             self.menu.is_playing = False
             self.menu.play_btn.unselect()
             self.menu.play_btn.update(0)
+            self.menu.hint_btn.enable() 
             return
 
-        print(f"\n{'='*95}\nExecuting Solver Engine...\n{'-'*95}")
+        print(f"\n{'='*95}\nInitializing Multitasking Solver Engine...\n{'-'*95}")
+        print(f"{'Algorithm':<12} | Status")
+        print(f"{'-'*95}")
         
         self.saved_solver_state = {
             'player': (self.player.x, self.player.y),
@@ -173,37 +188,29 @@ class Game:
         
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
-        self.solver_results.clear()
-        full_metrics = {}
         
-        print(f"{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}\n{'-'*95}")
+        num_algos = len(self.menu.selected_algos)
+        for i, algo in enumerate(self.menu.selected_algos):
+            # Calculate offset from the bottom of the "Initializing..." block
+            # Each algo prints one line, then a footer of 2 lines is added.
+            # Offset = (Total Algos - current index) + 1
+            offset = (num_algos - i) + 1
+            
+            # Initialize Generator with line offset
+            gen = None
+            if algo == 'BFS': gen = solver.solve_bfs(current_state, line_offset=offset)
+            elif algo == 'DFS': gen = solver.solve_dfs(current_state, line_offset=offset)
+            elif algo == 'A*': gen = solver.solve_astar(current_state, line_offset=offset)
+            elif algo == 'BestFS': gen = solver.solve_best_first(current_state, line_offset=offset)
+            elif algo == 'Dijkstra': gen = solver.solve_dijkstra(current_state, line_offset=offset)
+            
+            if gen:
+                self.menu.active_solvers[algo] = gen
+                self.menu.algo_custom_btns[algo].is_loading = True
+                self.menu.algo_btns[algo].disable() # Disable interaction while running
+                print(f"{algo:<12} | RUNNING (Cooperative Mode)")
         
-        for algo in self.menu.selected_algos:
-            if algo == 'BFS': result = solver.solve_bfs(current_state)
-            elif algo == 'DFS': result = solver.solve_dfs(current_state)
-            elif algo == 'A*': result = solver.solve_astar(current_state)
-            elif algo == 'BestFS': result = solver.solve_best_first(current_state)
-            elif algo == 'Dijkstra': result = solver.solve_dijkstra(current_state)
-                
-            self.solver_results[algo] = result['path']
-            full_metrics[algo] = result
-            
-            moves, pushes = ("FAIL", "FAIL") if not result['path'] else (len(result['path']), result['pushes'])
-            print(f"{algo:<12} | {result['time']:.4f}   | {result['visited']:<10} | {result['generated']:<10} | {result['max_fringe']:<10} | {result['pruned']:<8} | {pushes:<8} | {moves:<8}")
-            
-            # Incremental Results Update (Animations are now non-blocking)
-            self.menu.show_results(self.solver_results, full_metrics)
-            
-            if result.get('aborted'):
-                print(f"Batch Execution Aborted by User!")
-                break
-            
         print(f"{'='*95}\n")
-        
-        self.menu.is_playing = False
-        self.menu.play_btn.unselect()
-        self.menu.play_btn.update(0)
-        self.menu.hint_btn.enable()
 
     def run(self):
         while self.running:
@@ -212,8 +219,9 @@ class Game:
             if self.game_state == "MAIN_MENU":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
-                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.game_state = "QUIT_PROMPT"
+                    elif event.type == pygame.KEYDOWN:
+                        if (event.key == pygame.K_q) and (event.mod & pygame.KMOD_SHIFT): self.quit_game()
+                        elif event.key == pygame.K_ESCAPE: self.game_state = "QUIT_PROMPT"
                         
                     menu_action = self.start_menu.handle_events(event)
                     
@@ -228,8 +236,9 @@ class Game:
             elif self.game_state == "LEVEL_SELECT":
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
-                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.game_state = "MAIN_MENU"
+                    elif event.type == pygame.KEYDOWN:
+                        if (event.key == pygame.K_q) and (event.mod & pygame.KMOD_SHIFT): self.quit_game()
+                        elif event.key == pygame.K_ESCAPE: self.game_state = "MAIN_MENU"
                         
                     action, level = self.level_selector.handle_events(event)
                     if action == "START":
@@ -298,22 +307,29 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
+            
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_q and (event.mod & pygame.KMOD_SHIFT):
+                self.quit_game()
 
             action = self.menu.process_events(event)
 
             if self.level_complete_waiting:
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    
-                    if self.current_level_num == 'test':
-                        self.current_level_num = 0
-                    else:
-                        self.current_level_num += 1
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if self.current_level_num == 'test':
+                            self.current_level_num = 0
+                        else:
+                            self.current_level_num += 1
 
-                    if os.path.exists(f'levels/{self.current_level_num}.txt'):
+                        if os.path.exists(f'levels/{self.current_level_num}.txt'):
+                            self.load_current_level()
+                        else:
+                            print("All levels cleared!")
+                            self.quit_game()
+                    elif event.key == pygame.K_r:
                         self.load_current_level()
-                    else:
-                        print("All levels cleared!")
-                        self.quit_game()
+                    elif event.key == pygame.K_ESCAPE:
+                        self.game_state = "LEVEL_SELECT"
                 continue 
             
             if action == "RUN_SOLVER": self.execute_solvers() 
@@ -330,12 +346,13 @@ class Game:
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]
-                if self.solver_results[algo]:
+                result = self.menu.execution_cache.get(algo)
+                if result and result.get('path'):
                     if self.saved_solver_state:
                         self.player.x, self.player.y = self.saved_solver_state['player']
                         self.level.boxes = [list(box) for box in self.saved_solver_state['boxes']]
                     
-                    self.playback_path = self.solver_results[algo].copy()
+                    self.playback_path = result['path'].copy()
                     self.is_playing_back = True
                     self.playback_timer = pygame.time.get_ticks()
                     if self.menu.expanded: self.menu.toggle_expansion() 
@@ -364,10 +381,19 @@ class Game:
                 if self.handle_movement_input(event.key): continue
 
                 if event.key == pygame.K_ESCAPE: 
-                    self.game_state = "LEVEL_SELECT"
+                    if self.menu.active_solvers:
+                        self.menu.active_solvers.clear()
+                        for btn in self.menu.algo_custom_btns.values(): btn.is_loading = False
+                        for btn in self.menu.algo_btns.values(): btn.enable()
+                        print("Execution Aborted globally via ESC!")
+                    else:
+                        self.game_state = "LEVEL_SELECT"
                     continue
                 elif event.key == pygame.K_r: 
                     self.load_current_level()
+                
+                elif event.key == pygame.K_TAB:
+                    self.menu.toggle_expansion()
                 
                 elif event.key == pygame.K_z:
                     if len(self.history) > 0:
@@ -378,6 +404,7 @@ class Game:
 
     def update(self, time_delta):
         self.menu.update(time_delta)
+        self.particle_manager.update(time_delta)
         
         if self.hint_timer > 0:
             self.hint_timer -= time_delta
@@ -426,14 +453,40 @@ class Game:
                 self.map_surface.blit(self.red_box_img, (px * scaled_tile, py * scaled_tile))
 
         self.screen.blit(self.map_surface, self.map_rect)
+        self.particle_manager.draw(self.screen)
         self.menu.draw(self.screen)
         
         if self.level_complete_waiting:
             self.screen.blit(self.win_overlay, (0, 0))
-            self.screen.blit(self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)), 
-                             self.font_large.render("!!! Congrats !!!", True, (255, 255, 255)).get_rect(center=(window_width // 2, (window_height // 2) - 40)))
-            self.screen.blit(self.font_small.render("Press SPACE to continue", True, (200, 200, 200)), 
-                             self.font_small.render("Press SPACE to continue", True, (200, 200, 200)).get_rect(center=(window_width // 2, (window_height // 2) + 40)))
+            
+            # Render Congrats Text
+            congrats_surf = self.font_large.render("!!! Congrats !!!", True, (255, 255, 255))
+            self.screen.blit(congrats_surf, congrats_surf.get_rect(center=(window_width // 2, (window_height // 2) - 100)))
+            
+            # Helper to draw action box
+            def draw_shortcut_box(center_x, center_y, key_txt, action_txt):
+                box_w, box_h = 240, 140
+                box_rect = pygame.Rect(0, 0, box_w, box_h)
+                box_rect.center = (center_x, center_y)
+                
+                # Draw box border only
+                pygame.draw.rect(self.screen, (200, 200, 200), box_rect, 3, border_radius=15)
+                
+                # Render Key (Top)
+                key_surf = self.font_small.render(key_txt, True, (255, 255, 255))
+                key_rect = key_surf.get_rect(center=(center_x, center_y - 25))
+                self.screen.blit(key_surf, key_rect)
+                
+                # Render Action (Bottom)
+                action_surf = self.font_tiny.render(action_txt, True, (180, 180, 180))
+                action_rect = action_surf.get_rect(center=(center_x, center_y + 35))
+                self.screen.blit(action_surf, action_rect)
+
+            # Draw boxes side by side
+            box_spacing = 150
+            draw_shortcut_box(window_width // 2 - box_spacing, (window_height // 2) + 60, "R", "restart")
+           
+            draw_shortcut_box(window_width // 2 + box_spacing, (window_height // 2) + 60, "SPACE", "continue")
 
         pygame.display.update()
 

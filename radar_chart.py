@@ -8,17 +8,27 @@ class RadarChart:
         self.radius = radius
         self.color_map = color_map
         self.font = pygame.font.Font(font_path, font_size)
-        self.metrics = ['Time', 'Nodes', 'Fringe', 'Pushes', 'Pruned']
-        self.metric_keys = ['time', 'visited', 'max_fringe', 'pushes', 'pruned']
+        self.metrics = ['Time', 'Nodes', 'Moves', 'Pushes', 'Fringe', 'Pruned']
+        self.metric_keys = ['time', 'visited', 'moves', 'pushes', 'max_fringe', 'pruned']
         self.num_metrics = len(self.metrics)
         self.angles = [-math.pi / 2 + (2 * math.pi * i) / self.num_metrics for i in range(self.num_metrics)]
         self.data_snapshots = {}
         self.max_bounds = {k: 0.1 for k in self.metric_keys}
 
-        self.hovered_algo = None
+        self.hovered_item = None
         self.hover_start_time = 0
         self.HOVER_DELAY_MS = 500
         self.legend_hitboxes = []
+        self.axis_hitboxes = [] # (metric_name, label_rect)
+        
+        self.axis_descriptions = {
+            'Time': 'Solve time in seconds.',
+            'Nodes': 'Total visited search states.',
+            'Moves': 'Total steps in solution path.',
+            'Pushes': 'Total number of box movements.',
+            'Fringe': 'Peak memory (states in queue).',
+            'Pruned': 'Deadlock states skipped.'
+        }
         
         # Animation Queue System
         self.anim_queue = [] # List of (algo_name, metrics_dict)
@@ -165,11 +175,43 @@ class RadarChart:
             surface.blit(ts, (tx + padding_x, cur_y))
             cur_y += ts.get_height() + line_spacing
 
+    def _draw_axis_tooltip(self, surface, metric_name, mouse_pos):
+        """Draw a short description note box for the axis metric."""
+        desc = self.axis_descriptions.get(metric_name, "")
+        if not desc:
+            return
+
+        # Render text (Cream color)
+        text_surf = self.font.render(desc, True, (248, 244, 239))
+
+        padding_x, padding_y = 14, 10
+        box_w = text_surf.get_width() + padding_x * 2
+        box_h = text_surf.get_height() + padding_y * 2
+
+        # Position near cursor
+        tx = mouse_pos[0] + 16
+        ty = mouse_pos[1] + 16
+
+        if tx + box_w > window_width: tx = mouse_pos[0] - box_w - 8
+        if ty + box_h > window_height: ty = mouse_pos[1] - box_h - 8
+
+        # Draw background
+        tooltip_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        tooltip_surf.fill((20, 20, 25, 230))
+        surface.blit(tooltip_surf, (tx, ty))
+
+        # Draw border (Cream color)
+        pygame.draw.rect(surface, (248, 244, 239), (tx, ty, box_w, box_h), 2)
+
+        # Draw text
+        surface.blit(text_surf, (tx + padding_x, ty + padding_y))
+
     def draw(self, surface, visible_algos=None):
         if not self.finished_algos and not self.active_algo:
             return
 
         cx, cy = self.center
+        self.axis_hitboxes = []
 
         def draw_pixel_star(surf, cx, cy, color):
             """Draws a small 5x5 pixel-art style star"""
@@ -203,9 +245,10 @@ class RadarChart:
             label_text = self.metrics[i]
             lx = cx + (self.radius + 35) * math.cos(angle)
             ly = cy + (self.radius + 35) * math.sin(angle)
-            txt_surf = self.font.render(label_text, True, (200, 200, 200))
+            txt_surf = self.font.render(label_text, True, (248, 244, 239)) # Cream color
             rect = txt_surf.get_rect(center=(lx, ly))
             surface.blit(txt_surf, rect)
+            self.axis_hitboxes.append((label_text, rect))
 
         # 4. Collection for rendering
         surf_w = int(self.radius * 3)
@@ -219,9 +262,11 @@ class RadarChart:
                 val = metrics.get(k, 0)
                 if val == "FAIL": val = 0
                 normalized = float(val) / bounds[k]
-                # Constant speed math: instead of normalized * scale, 
-                # we use min(normalized, scale) so every vertex moves at 1.0 units per duration.
-                dist = self.radius * min(normalized, scale)
+                
+                # AXIS_BUFFER: prevent vertices from touching the physical edge (makes differences more visible)
+                AXIS_BUFFER = 0.88 
+                dist = self.radius * (AXIS_BUFFER * min(normalized, scale))
+                
                 px = center[0] + dist * math.cos(self.angles[i])
                 py = center[1] + dist * math.sin(self.angles[i])
                 pts.append((px, py))
@@ -289,18 +334,29 @@ class RadarChart:
         mouse_pos = pygame.mouse.get_pos()
         current_hover = None
         
+        # Check Legend hovers (Algos)
         for algo, hitbox in self.legend_hitboxes:
             if hitbox.collidepoint(mouse_pos):
-                current_hover = algo
+                current_hover = ("ALGO", algo)
                 break
+
+        # Check Axis hovers (Descriptions)
+        if not current_hover:
+            for metric, hitbox in self.axis_hitboxes:
+                if hitbox.collidepoint(mouse_pos):
+                    current_hover = ("AXIS", metric)
+                    break
 
         now = pygame.time.get_ticks()
 
-        if current_hover != self.hovered_algo:
+        if current_hover != self.hovered_item:
             # Mouse moved to a different item (or left all items)
-            self.hovered_algo = current_hover
+            self.hovered_item = current_hover
             self.hover_start_time = now
-        
-        # If hovering on something and enough time has passed, draw tooltip
-        if self.hovered_algo is not None and (now - self.hover_start_time) >= self.HOVER_DELAY_MS:
-            self._draw_tooltip(surface, self.hovered_algo, mouse_pos)
+            
+        if self.hovered_item and (now - self.hover_start_time > self.HOVER_DELAY_MS):
+            hover_type, hover_val = self.hovered_item
+            if hover_type == "ALGO":
+                self._draw_tooltip(surface, hover_val, mouse_pos)
+            elif hover_type == "AXIS":
+                self._draw_axis_tooltip(surface, hover_val, mouse_pos)

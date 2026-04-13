@@ -4,6 +4,71 @@ import time
 import pygame
 import sys
 import bisect
+import numpy as np
+from numba import njit
+
+# ==========================================
+# NUMBA JIT COMPILED HEURISTIC FUNCTIONS
+# ==========================================
+# We define these OUTSIDE the SokobanSolver class because Numba's @njit decorator 
+# translates Python directly to LLVM/C machine code. It cannot understand Python 
+# class instances (self) or dynamic memory structures like standard dictionaries.
+
+@njit
+def _solve_matching_rec(costs_matrix, box_idx, mask, dp_cache, target_count):
+    """
+    Recursive core of the Minimum Cost Perfect Matching algorithm.
+    Compiled to raw C for maximum execution speed during node expansion.
+    """
+    # BASE CASE: All boxes have been successfully paired with a target.
+    # The computational cost to match 0 remaining boxes is 0.
+    if box_idx == len(costs_matrix):
+        return 0
+        
+    # MEMOIZATION CHECK: O(1) cache lookup.
+    # Numba arrays are C-contiguous in memory, making this 2D array lookup 
+    # practically instantaneous compared to a Python dict hash collision.
+    if dp_cache[box_idx, mask] != -1:
+        return dp_cache[box_idx, mask]
+        
+    res = 999999  # Initialize with an arbitrarily high cost (infinity simulation)
+    
+    # Iterate through all available targets to find the optimal assignment
+    for t_idx in range(target_count):
+        # BITMASK CHECK: (1 << t_idx) creates a binary number with a 1 at the t_idx position.
+        # The bitwise AND (&) checks if that specific target is already taken in our 'mask'.
+        # If it equals 0, the target is free to be assigned.
+        if not (mask & (1 << t_idx)):
+            
+            # Retrieve the precomputed true-distance from this box to this target
+            cost = costs_matrix[box_idx, t_idx]
+            
+            # RECURSIVE STEP: 
+            # 1. Move to the next box (box_idx + 1)
+            # 2. Mark this target as 'taken' for the next branch using bitwise OR (|)
+            m = cost + _solve_matching_rec(costs_matrix, box_idx + 1, mask | (1 << t_idx), dp_cache, target_count)
+            
+            # If this combination permutation yields a lower total cost, retain it
+            if m < res: 
+                res = m
+                
+    # Store the absolute optimal path cost for this specific bitmask configuration
+    dp_cache[box_idx, mask] = res
+    return res
+
+@njit
+def fast_solve_matching_wrapper(costs_matrix, num_boxes, target_count):
+    """
+    Initialization wrapper for the DP recursion. 
+    Allocates the C-level memory array needed for the cache.
+    """
+    # ALLOCATE DP CACHE: Creates a 2D array of dimensions [num_boxes] x [2^target_count].
+    # Filled with -1 to indicate uncalculated states.
+    # Using np.full ensures static, flat memory allocation which Numba heavily optimizes.
+    dp_cache = np.full((num_boxes, 1 << target_count), -1, dtype=np.int32)
+    
+    # Start recursion at box 0 with an empty mask (0 in binary means no targets taken)
+    return _solve_matching_rec(costs_matrix, 0, 0, dp_cache, target_count)
 
 class SokobanSolver:
     def __init__(self, level):
@@ -168,20 +233,15 @@ class SokobanSolver:
                 if pos not in self.nearest_distances or d < self.nearest_distances[pos]:
                     self.nearest_distances[pos] = d
             
-    def _update_spinner(self, iterations, algo_name):
+    def _update_spinner(self, iterations, algo_name, line_offset=0):
         if iterations % 1000 == 0:
             chars = ['|', '/', '-', '\\']
             char = chars[(iterations // 1000) % 4]
-            sys.stdout.write(f"\r  Crunching {algo_name}... [{char}]")
+            # ANSI escape codes: \033[A moves cursor UP, \033[B moves cursor DOWN
+            # We move up by line_offset + 1 (to account for the current line we are on), 
+            # then \r to start of line, update, then move back down.
+            sys.stdout.write(f"\033[{line_offset + 1}A\r  Crunching {algo_name}... [{char}]\033[{line_offset + 1}B")
             sys.stdout.flush()
-            
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    print(f"\nSolver Aborted by User! (ESC pressed)")
-                    return "ABORT"
         return None
 
     def _clear_spinner(self):
@@ -191,40 +251,28 @@ class SokobanSolver:
     def heuristic(self, state):
         """
         Admissible heuristic: Minimum Cost Perfect Matching using bitmask DP.
-        Uses cached matching to prune the search tree significantly.
+        Delegates the heavy combinatorial math to the Numba-compiled C function.
         """
         _, _, boxes = state
-        if boxes in self.heuristic_cache:
-            return self.heuristic_cache[boxes]
-        
         num_boxes = len(boxes)
-        # 1. Build cost matrix
-        costs = [[self._per_target_dist[t].get(b, 999) for t in self.targets_list] for b in boxes]
         
-        # 3. Solve matching
-        dp = {}
-        target_count = len(self.targets_list)
-        def solve_matching(box_idx, mask):
-            if box_idx == num_boxes:
-                return 0
-            state_key = (box_idx, mask)
-            if state_key in dp:
-                return dp[state_key]
-            
-            res = 999999
-            row = costs[box_idx]
-            for t_idx in range(target_count):
-                if not (mask & (1 << t_idx)):
-                    cost = row[t_idx]
-                    # Since we already checked pullable_tiles, we know most are < 999
-                    m = cost + solve_matching(box_idx + 1, mask | (1 << t_idx))
-                    if m < res: res = m
-            
-            dp[state_key] = res
-            return res
-
-        total = solve_matching(0, 0)
-        self.heuristic_cache[boxes] = total
+        # 1. Build the Cost Matrix as a strictly typed NumPy array.
+        # Numba requires continuous memory blocks, so we convert our Python dict
+        # lookups into a 2D integer array of shape (num_boxes, num_targets).
+        costs = np.zeros((num_boxes, self.num_targets), dtype=np.int32)
+        
+        for i, b in enumerate(boxes):
+            # Using self.targets_tuple guarantees a deterministic iteration order, 
+            # ensuring target indexes match correctly across DP states.
+            for j, t in enumerate(self.targets_tuple): 
+                # Fetch O(1) precomputed exact distance, default to 999 if unreachable
+                costs[i, j] = self._per_target_dist[t].get(b, 999)
+                
+        # 2. Execute JIT-Compiled Math
+        # The first time this is called, Numba will pause briefly to compile.
+        # Every subsequent call across all solver executions runs directly in machine code.
+        total = fast_solve_matching_wrapper(costs, num_boxes, self.num_targets)
+        
         return total
 
     def get_initial_state(self, player, level):
@@ -304,7 +352,7 @@ class SokobanSolver:
                 pushes += 1
         return path[::-1], pushes
 
-    def solve_bfs(self, initial_state):
+    def solve_bfs(self, initial_state, chunk_size=500, line_offset=0):
         start_time = time.time()
         self.current_pruned = 0
         queue = collections.deque([initial_state])
@@ -313,13 +361,14 @@ class SokobanSolver:
         
         while queue:
             iterations += 1
-            if self._update_spinner(iterations, "BFS") == "ABORT":
-                self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+            if iterations % chunk_size == 0:
+                self._update_spinner(iterations, "BFS", line_offset)
+                yield ("RUNNING", None)
 
             if time.time() - start_time > 120.0: 
                 self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+                yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+                return
 
             max_fringe = max(max_fringe, len(queue))
             state = queue.popleft()
@@ -328,16 +377,18 @@ class SokobanSolver:
             if self.is_goal_state(state): 
                 self._clear_spinner()
                 path, pushes = self._reconstruct_path(state, came_from)
-                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                yield ("DONE", self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes))
+                return
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in came_from:
                     came_from[next_state] = (state, move, is_push)
                     nodes_generated += 1
                     queue.append(next_state)
-        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+        
+        yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
 
-    def solve_dfs(self, initial_state):
+    def solve_dfs(self, initial_state, chunk_size=500, line_offset=0):
         start_time = time.time()
         self.current_pruned = 0
         stack = [initial_state]
@@ -346,13 +397,14 @@ class SokobanSolver:
         
         while stack:
             iterations += 1
-            if self._update_spinner(iterations, "DFS") == "ABORT":
-                self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+            if iterations % chunk_size == 0:
+                self._update_spinner(iterations, "DFS", line_offset)
+                yield ("RUNNING", None)
 
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+                yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+                return
 
             max_fringe = max(max_fringe, len(stack))
             state = stack.pop()
@@ -361,16 +413,18 @@ class SokobanSolver:
             if self.is_goal_state(state):
                 self._clear_spinner()
                 path, pushes = self._reconstruct_path(state, came_from)
-                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                yield ("DONE", self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes))
+                return
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in came_from:
                     came_from[next_state] = (state, move, is_push)
                     nodes_generated += 1
                     stack.append(next_state)
-        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+        
+        yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
 
-    def solve_astar(self, initial_state):
+    def solve_astar(self, initial_state, chunk_size=500, line_offset=0):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         # PQ entry: (f_score, tiebreaker, state, g_score)
@@ -381,13 +435,14 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "A*") == "ABORT":
-                self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+            if iterations % chunk_size == 0:
+                self._update_spinner(iterations, "A*", line_offset)
+                yield ("RUNNING", None)
 
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+                yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+                return
 
             max_fringe = max(max_fringe, len(priority_queue))
             _, _, state, g = heapq.heappop(priority_queue)
@@ -396,7 +451,8 @@ class SokobanSolver:
             if self.is_goal_state(state):
                 self._clear_spinner()
                 path, pushes = self._reconstruct_path(state, came_from)
-                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                yield ("DONE", self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes))
+                return
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 new_cost = g + 1
@@ -407,9 +463,53 @@ class SokobanSolver:
                     nodes_generated += 1
                     priority = new_cost + self.heuristic(next_state)
                     heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
+        
+        yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+
+    def solve_fast_hint(self, initial_state, weight=5.0, timeout=2.0):
+        """
+        Hyper-fast Weighted A* exclusively for the hint system.
+        Designed to return a result almost instantaneously by being greedy.
+        """
+        start_time = time.time()
+        count = 0; self.current_pruned = 0
+        
+        # PQ entry: (f_score, tiebreaker, state, g_score)
+        priority_queue = [(weight * self.heuristic(initial_state), count, initial_state, 0)]
+        came_from = {initial_state: None}
+        cost_so_far = {initial_state: 0}
+        nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
+        
+        while priority_queue:
+            iterations += 1
+            # Keep OS happy every 5000 iterations and check timeout
+            if iterations % 5000 == 0:
+                pygame.event.pump()
+                if time.time() - start_time > timeout:
+                    return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+            max_fringe = max(max_fringe, len(priority_queue))
+            _, _, state, g = heapq.heappop(priority_queue)
+            nodes_visited += 1
+            
+            if self.is_goal_state(state):
+                path, pushes = self._reconstruct_path(state, came_from)
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                
+            for move, is_push, next_state in self.get_valid_moves(state):
+                new_cost = g + 1
+                if next_state not in cost_so_far or new_cost < cost_so_far[next_state]:
+                    cost_so_far[next_state] = new_cost
+                    came_from[next_state] = (state, move, is_push)
+                    count += 1
+                    nodes_generated += 1
+                    # Weighted A* priority: f = g + weight * h
+                    priority = new_cost + (weight * self.heuristic(next_state))
+                    heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
+                    
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
 
-    def solve_best_first(self, initial_state):
+    def solve_best_first(self, initial_state, chunk_size=500, line_offset=0):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         priority_queue = [(self.heuristic(initial_state), count, initial_state)]
@@ -418,13 +518,14 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "BestFS") == "ABORT":
-                self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+            if iterations % chunk_size == 0:
+                self._update_spinner(iterations, "BestFS", line_offset)
+                yield ("RUNNING", None)
 
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+                yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+                return
 
             max_fringe = max(max_fringe, len(priority_queue))
             _, _, state = heapq.heappop(priority_queue)
@@ -433,7 +534,8 @@ class SokobanSolver:
             if self.is_goal_state(state):
                 self._clear_spinner()
                 path, pushes = self._reconstruct_path(state, came_from)
-                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                yield ("DONE", self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes))
+                return
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 if next_state not in came_from:
@@ -442,9 +544,10 @@ class SokobanSolver:
                     nodes_generated += 1
                     priority = self.heuristic(next_state) 
                     heapq.heappush(priority_queue, (priority, count, next_state))
-        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+        
+        yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
 
-    def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10):
+    def solve_dijkstra(self, initial_state, move_cost=1, push_cost=10, chunk_size=500, line_offset=0):
         start_time = time.time()
         count = 0; self.current_pruned = 0
         # PQ entry: (g_score, tiebreaker, state)
@@ -455,13 +558,14 @@ class SokobanSolver:
         
         while priority_queue:
             iterations += 1
-            if self._update_spinner(iterations, "Dijkstra") == "ABORT":
-                self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe, aborted=True)
+            if iterations % chunk_size == 0:
+                self._update_spinner(iterations, "Dijkstra", line_offset)
+                yield ("RUNNING", None)
 
             if time.time() - start_time > 120.0:
                 self._clear_spinner()
-                return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+                yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
+                return
 
             max_fringe = max(max_fringe, len(priority_queue))
             g, _, state = heapq.heappop(priority_queue)
@@ -473,7 +577,8 @@ class SokobanSolver:
             if self.is_goal_state(state):
                 self._clear_spinner()
                 path, pushes = self._reconstruct_path(state, came_from)
-                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                yield ("DONE", self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes))
+                return
                 
             for move, is_push, next_state in self.get_valid_moves(state):
                 edge_cost = push_cost if is_push else move_cost
@@ -485,10 +590,11 @@ class SokobanSolver:
                     count += 1
                     nodes_generated += 1
                     heapq.heappush(priority_queue, (new_g, count, next_state))
-        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+        
+        yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
 
     def _fail_dict(self, start_time, visited, generated, fringe, aborted=False):
-        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'pruned': self.current_pruned, 'aborted': aborted}
+        return {'path': None, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': 0, 'moves': 0, 'pruned': self.current_pruned, 'aborted': aborted}
         
     def _success_dict(self, path, start_time, visited, generated, fringe, pushes):
-        return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'pruned': self.current_pruned}
+        return {'path': path, 'time': time.time() - start_time, 'visited': visited, 'generated': generated, 'max_fringe': fringe, 'pushes': pushes, 'moves': len(path), 'pruned': self.current_pruned}

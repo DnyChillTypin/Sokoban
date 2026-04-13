@@ -1,25 +1,28 @@
 import pygame
 import pygame_gui
 from settings import *
+from button import Button
 
 class GameMenu:
     def __init__(self):
         self.manager = pygame_gui.UIManager((window_width, window_height), UI_THEME)
         self.ai_dropdown_open = False
         self.expanded = False
-        self.selected_algos = set() 
+        self.selected_algos = set(ALGORITHMS) 
         self.is_playing = False 
         
         self.algo_results = {algo: None for algo in ALGORITHMS}
         self.execution_cache = {}
+        self.active_solvers = {} # Dict mapping algo_name -> generator
+        self.started_batch = False # NEW: Track batch completion for terminal reporting
         
         from radar_chart import RadarChart
         color_map = {
-            'A*': (255, 50, 50),       # Red
-            'BFS': (50, 50, 255),      # Blue
-            'DFS': (50, 255, 50),      # Green
-            'BestFS': (255, 255, 50),  # Yellow
-            'Dijkstra': (255, 130, 0)  # Orange
+            'A*': (255, 0, 80),       # Neon Red/Pink
+            'BFS': (0, 255, 255),      # Pure Cyan
+            'DFS': (0, 255, 0),        # Pure Green
+            'BestFS': (255, 255, 0),   # Hot Magenta
+            'Dijkstra': (255, 140, 0)  # Bright Orange
         }
         self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
         
@@ -89,11 +92,19 @@ class GameMenu:
         # Algorithm & Result Buttons
         self.algo_btns = {}
         self.result_btns = {} 
+        self.algo_custom_btns = {}
         current_y = (ai_y + btn_h) + 100 
         
         for algo in ALGORITHMS:
-            self.algo_btns[algo] = self._create_btn(btn_x, current_y, btn_w, btn_h, '#algo_btn', visible=False)
+            uibtn = self._create_btn(btn_x, current_y, btn_w, btn_h, '#algo_btn', visible=False)
+            self.algo_btns[algo] = uibtn
             self.result_btns[algo] = self._create_btn(play_x + 20, current_y, play_w, btn_h, '#result_btn', visible=False)
+            
+            # --- NEW: Custom Button Objects for specialized rendering (spinners) ---
+            self.algo_custom_btns[algo] = Button(
+                rect=uibtn.rect, text=algo.upper(), 
+                font=self.custom_font, color=(255, 255, 255)
+            )
             current_y += btn_h + 15 
 
         # Expansion Toggle
@@ -165,6 +176,9 @@ class GameMenu:
         self.play_btn.update(0)
         self.hint_btn.enable() 
         self.execution_cache.clear()
+        self.active_solvers.clear() # Kill all running generators
+        for btn in self.algo_btns.values(): btn.enable()
+        for c_btn in self.algo_custom_btns.values(): c_btn.is_loading = False
         self.radar_chart.reset() 
         for res_btn in self.result_btns.values(): res_btn.hide()
 
@@ -222,6 +236,10 @@ class GameMenu:
             elif ui in self.algo_btns.values():
                 clicked_algo = next((name for name, btn in self.algo_btns.items() if btn == ui), None)
                 
+                # --- NEW: Disable interaction if already running ---
+                if clicked_algo and self.algo_custom_btns[clicked_algo].is_loading:
+                    return None
+
                 if clicked_algo in self.selected_algos:
                     self.selected_algos.remove(clicked_algo)
                     self.algo_btns[clicked_algo].unselect() 
@@ -238,6 +256,82 @@ class GameMenu:
     def update(self, time_delta):
         self.manager.update(time_delta)
         self.radar_chart.update(time_delta)
+        
+        # Generator Ticking - Process active solvers
+        if self.active_solvers:
+            self.started_batch = True
+            finished_this_frame = []
+            for algo_name, generator in list(self.active_solvers.items()):
+                try:
+                    # Capture one 'chunk' of search work
+                    status, result = next(generator)
+                    
+                    if status == "DONE":
+                        # 1. Save to execution cache for radar chart and replay
+                        self.execution_cache[algo_name] = result
+                        
+                        # 2. Update UI result displays
+                        path = result.get('path')
+                        self.algo_results[algo_name] = len(path) if path is not None else "FAIL"
+                        if self.ai_dropdown_open:
+                            self.result_btns[algo_name].show()
+                            
+                        # 3. Queue for Radar Chart animation
+                        self.radar_chart.add_to_queue(algo_name, result)
+                        
+                        # 4. Mark for removal from active list
+                        finished_this_frame.append(algo_name)
+                        
+                        # 5. Visual polish: stop loading spinner
+                        self.algo_custom_btns[algo_name].is_loading = False
+                        self.algo_btns[algo_name].enable()
+                        
+                except (StopIteration, Exception) as e:
+                    if not isinstance(e, StopIteration):
+                        print(f"Error in solver {algo_name}: {e}")
+                    finished_this_frame.append(algo_name)
+                    self.algo_custom_btns[algo_name].is_loading = False
+                    self.algo_btns[algo_name].enable()
+
+            # Cleanup
+            for algo in finished_this_frame:
+                if algo in self.active_solvers:
+                    del self.active_solvers[algo]
+                    
+            # Auto-unselect play button if all work is done
+            if not self.active_solvers and self.is_playing:
+                self.is_playing = False
+                self.play_btn.unselect()
+                self.play_btn.update(0)
+                self.hint_btn.enable()
+                
+                # NEW: Print the terminal summary table once the entire batch is complete
+                if self.started_batch:
+                    self._print_execution_summary()
+                    self.started_batch = False
+
+    def _print_execution_summary(self):
+        """Prints a professional batch summary table to the terminal."""
+        print(f"\n{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}")
+        print("-" * 95)
+        
+        # Sort based on the predefined ALGORITHMS list for consistent ordering
+        for algo in ALGORITHMS:
+            if algo in self.execution_cache:
+                m = self.execution_cache[algo]
+                time_val = f"{m['time']:.4f}"
+                visited = str(m['visited'])
+                generated = str(m['generated'])
+                mem = str(m['max_fringe'])
+                pruned = str(m['pruned'])
+                
+                # Consistent FAIL reporting
+                path = m.get('path')
+                moves = str(len(path)) if path is not None else "FAIL"
+                pushes = str(m['pushes']) if path is not None else "FAIL"
+                
+                print(f"{algo:<12} | {time_val:<10} | {visited:<10} | {generated:<10} | {mem:<10} | {pruned:<8} | {pushes:<8} | {moves:<8}")
+        print(f"{'-'*95}\n")
 
     def draw(self, surface):
         if self.expanded:
@@ -287,19 +381,16 @@ class GameMenu:
         # Dropdown Items
         if self.ai_dropdown_open:
             for algo, btn in self.algo_btns.items():
-                color = (255, 255, 255)
-                if algo.lower() == "a*":
-                    # Special rendering for A*
-                    display_name = "A"
-                    draw_text(display_name, btn, color)
-                    # Draw star next to A
-                    y_offset = 37 if btn.is_selected else 32
+                custom_btn = self.algo_custom_btns[algo]
+                custom_btn.rect = btn.rect # Keep in sync
+                custom_btn.draw(surface)
+                
+                # Special Case: A* star icon
+                if algo.lower() == "a*" and not custom_btn.is_loading:
                     star_x = btn.rect.centerx + 12
-                    star_y = btn.rect.y + y_offset - 10
+                    star_y = btn.rect.y + (37 if btn.is_selected else 32) - 10
                     if btn.held and btn.is_enabled: star_y += 5
-                    draw_pixel_star(surface, star_x, star_y, color)
-                else:
-                    draw_text(algo.upper(), btn, color)
+                    draw_pixel_star(surface, star_x, star_y, (255, 255, 255))
                 
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:

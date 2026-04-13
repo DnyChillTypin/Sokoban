@@ -32,17 +32,22 @@ class Player:
             box_target_y = box_to_push[1] + dy
 
             if level.is_wall(box_target_y, box_target_x):
-                return
+                return None
 
             for other_box in level.boxes:
                 if other_box[0] == box_target_x and other_box[1] == box_target_y:
-                    return
+                    return None
             
             box_to_push[0] = box_target_x
             box_to_push[1] = box_target_y
 
+            self.x = target_x
+            self.y = target_y
+            return (box_target_x, box_target_y)
+
         self.x = target_x
         self.y = target_y
+        return None
 
     def draw(self,surface):
         pixel_x = self.x * scaled_tile
