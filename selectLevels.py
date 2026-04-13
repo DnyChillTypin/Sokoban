@@ -31,6 +31,14 @@ class LevelSelection:
         self.hover_scale = 1.0
         self.hover_alpha = 0
 
+        self.box_red_img = pygame.image.load(
+            "assets/graphics/interactables/BoxRed.png"
+        ).convert_alpha()
+
+        self.box_red_img = pygame.transform.scale(
+            self.box_red_img, (scaled_tile, scaled_tile)
+        )
+
     def _setup_ui(self):
         btn_w = 80
         btn_h = 250
@@ -88,6 +96,9 @@ class LevelSelection:
 
         surface = pygame.Surface((map_width, map_height), pygame.SRCALPHA)
         level.draw(surface)
+
+        self.box_positions = level.boxes.copy()
+        self.level_ref = level
 
         player_img = pygame.image.load(textures['player']).convert_alpha()
         player_img = pygame.transform.scale(player_img, (scaled_tile, scaled_tile))
@@ -152,7 +163,6 @@ class LevelSelection:
         else:
             self.hover_alpha = max(0, self.hover_alpha - 10)
 
-        # 🔹 3. vẽ map sau khi có scale mới
         scaled_w = int(self.preview_rect.width * self.hover_scale)
         scaled_h = int(self.preview_rect.height * self.hover_scale)
 
@@ -163,7 +173,21 @@ class LevelSelection:
 
         self.screen.blit(scaled_img, (draw_x, draw_y))
 
-        # 🔹 overlay sáng
+        if hover:
+            scale = scaled_w / (self.level_ref.columns * scaled_tile)
+
+            for box in self.box_positions:
+                col, row = box
+
+                x = int(draw_x + col * scaled_tile * scale)
+                y = int(draw_y + row * scaled_tile * scale)
+
+                size = int(scaled_tile * scale)
+
+                box_img = pygame.transform.smoothscale(self.box_red_img, (size, size))
+
+                self.screen.blit(box_img, (x, y))
+
         if self.hover_alpha > 0:
             highlight = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
             highlight.fill((255, 255, 255, self.hover_alpha))
