@@ -201,12 +201,19 @@ class LevelSelection:
                 self.screen.blit(target_img, (x, y))
 
         if hover:
+            border_thickness = 3
+            offset = border_thickness
+
             pygame.draw.rect(
                 self.screen,
-                (255, 0, 0),
-                (draw_x, draw_y, scaled_w, scaled_h),
-                3,
-                border_radius=10
+                (255, 45, 45),
+                (
+                    draw_x - offset,
+                    draw_y - offset,
+                    scaled_w + offset * 2,
+                    scaled_h + offset * 2
+                ),
+                border_thickness
             )
 
         font = pygame.font.Font(font_path, 80)
