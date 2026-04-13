@@ -104,6 +104,12 @@ class Game:
         self.hint_box_pos = None
 
     def handle_movement_input(self, key):
+        # EXTREME PERFORMANCE GUARD: 
+        # Disable manual movement while asynchronous solvers are crunching.
+        # This ensures the heuristic doesn't calculate against a mutated state.
+        if self.menu.active_solvers:
+            return False
+
         directions = {
             pygame.K_UP: (0, -1), pygame.K_w: (0, -1),
             pygame.K_DOWN: (0, 1), pygame.K_s: (0, 1),
@@ -382,9 +388,7 @@ class Game:
 
                 if event.key == pygame.K_ESCAPE: 
                     if self.menu.active_solvers:
-                        self.menu.active_solvers.clear()
-                        for btn in self.menu.algo_custom_btns.values(): btn.is_loading = False
-                        for btn in self.menu.algo_btns.values(): btn.enable()
+                        self.menu.abort_all()
                         print("Execution Aborted globally via ESC!")
                     else:
                         self.game_state = "LEVEL_SELECT"
@@ -491,7 +495,11 @@ class Game:
         pygame.display.update()
 
 if __name__ == '__main__':
-    sokoban = Game()
-    sokoban.run()
-    import pygame
+    try:
+        sokoban = Game()
+        sokoban.run()
+    except KeyboardInterrupt:
+        print("\nShutting down gracefully...")
+        pygame.quit()
+        sys.exit()
 

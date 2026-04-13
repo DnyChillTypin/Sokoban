@@ -138,6 +138,33 @@ class GameMenu:
         if not self.expanded and self.ai_dropdown_open:
             self.toggle_ai_dropdown()
 
+    def abort_all(self):
+        """Manually terminates all active solvers and records them as ABORTED."""
+        if not self.active_solvers:
+            return
+            
+        for algo in list(self.active_solvers.keys()):
+            # Store a dummy result marked as aborted so the summary table 
+            # and metrics can properly report the failure.
+            self.execution_cache[algo] = {
+                'path': None, 'time': 0, 'visited': 0, 
+                'generated': 0, 'max_fringe': 0, 'pushes': 0, 
+                'pruned': 0, 'aborted': True
+            }
+            self.algo_custom_btns[algo].is_loading = False
+            self.algo_btns[algo].enable()
+            
+        self.active_solvers.clear()
+        self.is_playing = False
+        self.play_btn.unselect()
+        self.play_btn.update(0)
+        self.hint_btn.enable()
+        
+        # Trigger the summary printout
+        if self.started_batch:
+            self._print_execution_summary()
+            self.started_batch = False
+
     def toggle_ai_dropdown(self):
         self.ai_dropdown_open = not self.ai_dropdown_open
         
@@ -312,10 +339,10 @@ class GameMenu:
 
     def _print_execution_summary(self):
         """Prints a professional batch summary table to the terminal."""
+        # Standard padding for perfect alignment
         print(f"\n{'Algorithm':<12} | {'Time (s)':<10} | {'Visited':<10} | {'Generated':<10} | {'Max Mem':<10} | {'Pruned':<8} | {'Pushes':<8} | {'Moves':<8}")
         print("-" * 95)
         
-        # Sort based on the predefined ALGORITHMS list for consistent ordering
         for algo in ALGORITHMS:
             if algo in self.execution_cache:
                 m = self.execution_cache[algo]
@@ -325,12 +352,19 @@ class GameMenu:
                 mem = str(m['max_fringe'])
                 pruned = str(m['pruned'])
                 
-                # Consistent FAIL reporting
+                # ABORT DETECTION: If the solver was manually stopped, display ABORT.
+                is_aborted = m.get('aborted', False)
+                
                 path = m.get('path')
-                moves = str(len(path)) if path is not None else "FAIL"
-                pushes = str(m['pushes']) if path is not None else "FAIL"
+                if is_aborted:
+                    moves = "ABORT"
+                    pushes = "ABORT"
+                else:
+                    moves = str(len(path)) if path is not None else "FAIL"
+                    pushes = str(m['pushes']) if path is not None else "FAIL"
                 
                 print(f"{algo:<12} | {time_val:<10} | {visited:<10} | {generated:<10} | {mem:<10} | {pruned:<8} | {pushes:<8} | {moves:<8}")
+        print(f"{'-'*95}\n")
         print(f"{'-'*95}\n")
 
     def draw(self, surface):

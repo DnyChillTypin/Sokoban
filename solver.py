@@ -57,18 +57,40 @@ def _solve_matching_rec(costs_matrix, box_idx, mask, dp_cache, target_count):
     return res
 
 @njit
-def fast_solve_matching_wrapper(costs_matrix, num_boxes, target_count):
+def fast_solve_matching_wrapper(dist_matrix, boxes_array, target_count):
     """
-    Initialization wrapper for the DP recursion. 
-    Allocates the C-level memory array needed for the cache.
+    EXTREME PERFORMANCE WRAPPER:
+    This function handles the heavy lifting of node expansion in machine code.
+    
+    Data Architecture:
+    1. dist_matrix: A 3D NumPy array (num_targets, rows, cols) containing 
+       precomputed BFS distances. Accessed via contiguous indexing.
+    2. boxes_array: A 2D array (num_boxes, 2) containing integers of box locations.
     """
-    # ALLOCATE DP CACHE: Creates a 2D array of dimensions [num_boxes] x [2^target_count].
-    # Filled with -1 to indicate uncalculated states.
-    # Using np.full ensures static, flat memory allocation which Numba heavily optimizes.
+    num_boxes = len(boxes_array)
+    
+    # 1. DYNAMIC ALLOCATION: Allocate the cost-matrix directly in Numba/LLVM space.
+    # Using np.zeros with int32 ensures we have a flat, contiguous memory block 
+    # that matches the C-level performance requirements of the recursive matcher.
+    costs = np.zeros((num_boxes, target_count), dtype=np.int32)
+    
+    # 2. VECTORIZED COST GENERATION: Build the box-to-target mapping.
+    # We iterate over every box i and every target j.
+    # By fetching directly from the 3D dist_matrix, we overhead of Python dictionary 
+    # lookups and tuple object creation is completely eliminated.
+    for i in range(num_boxes):
+        bx, by = boxes_array[i, 0], boxes_array[i, 1]
+        for j in range(target_count):
+            # Fetch cost: dist_matrix[target_index, y_coord, x_coord]
+            costs[i, j] = dist_matrix[j, by, bx]
+            
+    # 3. ALLOCATE DP CACHE: Creates a 2D array of dimensions [num_boxes] x [2^target_count].
+    # Using a Power-of-2 bitmask (1 << target_count) allows for O(1) state lookup 
+    # via bit-shifting, which is the most efficient way to track combinatorial subsets.
     dp_cache = np.full((num_boxes, 1 << target_count), -1, dtype=np.int32)
     
-    # Start recursion at box 0 with an empty mask (0 in binary means no targets taken)
-    return _solve_matching_rec(costs_matrix, 0, 0, dp_cache, target_count)
+    # Start recursion at box 0 with an empty mask (0 means no targets taken)
+    return _solve_matching_rec(costs, 0, 0, dp_cache, target_count)
 
 class SokobanSolver:
     def __init__(self, level):
@@ -191,47 +213,48 @@ class SokobanSolver:
 
     def _precompute_exact_distances(self):
         """
-        Per-target PULL BFS: For each target, BFS outward by 'pulling' a box.
-        This detects true box-reachability (including deadlocks).
-        If a box is at a position where it cannot be pulled from any target,
-        it's a deadlock.
+        EXTREME PERFORMANCE PRECOMPUTATION:
+        Builds a 3D NumPy array of 'True Distances' from every floor tile 
+        to every target, using BFS Pull logic.
+        
+        Memory Layout:
+        - Shape: (num_targets, rows, columns)
+        - DType: np.int32 (Standard 4-byte integer for LLVM compatibility)
+        - Default Value: 999999 (High value to prevent DP wrap-around while maintaining 
+          valid comparison operations).
         """
-        self._per_target_dist = {}
         self.targets_list = list(self.targets)
         self.pullable_tiles = set()
         
-        for target in self.targets_list:
-            dist_map = {}
+        # Initialize 3D Distance Matrix in contiguous memory
+        # Dimensions: [Target Index][Y Coordinate][X Coordinate]
+        self.dist_matrix = np.full(
+            (self.num_targets, self.level.rows, self.level.columns), 
+            999999, 
+            dtype=np.int32
+        )
+        
+        for t_idx, target in enumerate(self.targets_list):
             queue = collections.deque([(target[0], target[1], 0)])
-            dist_map[target] = 0
+            # Seed the distance matrix at the target source
+            self.dist_matrix[t_idx, target[1], target[0]] = 0
             
             while queue:
                 x, y, dist = queue.popleft()
                 self.pullable_tiles.add((x, y))
-                # Try to 'pull' the box to (nx, ny)
+                
                 for dx, dy in ((0,1), (1,0), (0,-1), (-1,0)):
-                    # To pull a box from (x,y) to (x+dx, y+dy),
-                    # the player must move from (x+dx, y+dy) to (x-dx, y-dy)? No.
-                    # Standard Pull: Box at B, Player at P. 
-                    # If P is at (x+dx, y+dy) and B is at (x,y), 
-                    # can pull box to P if (x+2*dx, y+2*dy) is reachable by player?
-                    # Simplified: just check if both (x+dx, y+dy) and (x+2*dx, y+2*dy) are floor.
                     nx, ny = x + dx, y + dy
                     px, py = x + 2*dx, y + 2*dy
                     
                     if (nx, ny) not in self.walls and (px, py) not in self.walls:
-                        if (nx, ny) not in dist_map:
-                            dist_map[(nx, ny)] = dist + 1
+                        # Direct NumPy access instead of dict .get() / .set()
+                        if self.dist_matrix[t_idx, ny, nx] == 999999:
+                            self.dist_matrix[t_idx, ny, nx] = dist + 1
                             queue.append((nx, ny, dist + 1))
             
-            self._per_target_dist[target] = dist_map
-        
-        # Build nearest-distance map
-        self.nearest_distances = {}
-        for target, dm in self._per_target_dist.items():
-            for pos, d in dm.items():
-                if pos not in self.nearest_distances or d < self.nearest_distances[pos]:
-                    self.nearest_distances[pos] = d
+        # Optional: Build a 2D 'min-distance-to-any-target' map for simple heuristics
+        self.nearest_distances = np.min(self.dist_matrix, axis=0)
             
     def _update_spinner(self, iterations, algo_name, line_offset=0):
         if iterations % 1000 == 0:
@@ -254,24 +277,16 @@ class SokobanSolver:
         Delegates the heavy combinatorial math to the Numba-compiled C function.
         """
         _, _, boxes = state
-        num_boxes = len(boxes)
         
-        # 1. Build the Cost Matrix as a strictly typed NumPy array.
-        # Numba requires continuous memory blocks, so we convert our Python dict
-        # lookups into a 2D integer array of shape (num_boxes, num_targets).
-        costs = np.zeros((num_boxes, self.num_targets), dtype=np.int32)
+        # 1. Convert boxes tuple to a typed NumPy array.
+        # This conversion happens once per heuristic call, allowing the 
+        # rest of the matching logic to execute at raw machine speeds.
+        boxes_array = np.array(boxes, dtype=np.int32)
         
-        for i, b in enumerate(boxes):
-            # Using self.targets_tuple guarantees a deterministic iteration order, 
-            # ensuring target indexes match correctly across DP states.
-            for j, t in enumerate(self.targets_tuple): 
-                # Fetch O(1) precomputed exact distance, default to 999 if unreachable
-                costs[i, j] = self._per_target_dist[t].get(b, 999)
-                
         # 2. Execute JIT-Compiled Math
-        # The first time this is called, Numba will pause briefly to compile.
-        # Every subsequent call across all solver executions runs directly in machine code.
-        total = fast_solve_matching_wrapper(costs, num_boxes, self.num_targets)
+        # We pass the precomputed 3D distance grid and the current box locations.
+        # Numba handles the LLVM-translated execution of the matching recursion.
+        total = fast_solve_matching_wrapper(self.dist_matrix, boxes_array, self.num_targets)
         
         return total
 
