@@ -29,7 +29,6 @@ class LevelSelection:
         self._load_level_preview()
 
         self.hover_scale = 1.0
-        self.hover_alpha = 0
 
         self.box_red_img = pygame.image.load(
             "assets/graphics/interactables/BoxRed.png"
@@ -37,6 +36,14 @@ class LevelSelection:
 
         self.box_red_img = pygame.transform.scale(
             self.box_red_img, (scaled_tile, scaled_tile)
+        )
+
+        self.target_red_img = pygame.image.load(
+            "assets/graphics/interactables/ButtonUpRed.png"
+        ).convert_alpha()
+
+        self.target_red_img = pygame.transform.scale(
+            self.target_red_img, (scaled_tile, scaled_tile)
         )
 
     def _setup_ui(self):
@@ -98,6 +105,7 @@ class LevelSelection:
         level.draw(surface)
 
         self.box_positions = level.boxes.copy()
+        self.target_positions = level.targets.copy()
         self.level_ref = level
 
         player_img = pygame.image.load(textures['player']).convert_alpha()
@@ -158,11 +166,6 @@ class LevelSelection:
         mouse_pos = pygame.mouse.get_pos()
         hover = self.preview_rect.collidepoint(mouse_pos)
 
-        if hover:
-            self.hover_alpha = min(100, self.hover_alpha + 10)
-        else:
-            self.hover_alpha = max(0, self.hover_alpha - 10)
-
         scaled_w = int(self.preview_rect.width * self.hover_scale)
         scaled_h = int(self.preview_rect.height * self.hover_scale)
 
@@ -188,16 +191,19 @@ class LevelSelection:
 
                 self.screen.blit(box_img, (x, y))
 
-        if self.hover_alpha > 0:
-            highlight = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
-            highlight.fill((255, 255, 255, self.hover_alpha))
-            self.screen.blit(highlight, (draw_x, draw_y))
+            for col, row in self.target_positions:
+                x = int(draw_x + col * scaled_tile * scale)
+                y = int(draw_y + row * scaled_tile * scale)
 
+                size = int(scaled_tile * scale)
+                target_img = pygame.transform.smoothscale(self.target_red_img, (size, size))
+
+                self.screen.blit(target_img, (x, y))
 
         if hover:
             pygame.draw.rect(
                 self.screen,
-                (100, 180, 255),
+                (255, 0, 0),
                 (draw_x, draw_y, scaled_w, scaled_h),
                 3,
                 border_radius=10

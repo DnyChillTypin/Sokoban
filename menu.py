@@ -11,6 +11,10 @@ class SokobanMenu:
         self.state = "MAIN"
 
         self.anim_time = 0
+        self.fly_x1 = -200
+        self.fly_x2 = window_width + 200
+        self.fly_speed = 120
+        self.box_started = False
 
         self.TITLE_GREEN = (0, 255, 127)
         self.TITLE_YELLOW = (255, 255, 0)
@@ -45,9 +49,9 @@ class SokobanMenu:
     def load_assets(self):
         try:
             orig_char = pygame.image.load(textures['player']).convert_alpha()
-            self.char_img = pygame.transform.scale(orig_char, (350, 350))
+            self.char_img = pygame.transform.scale(orig_char, (300, 300))
             orig_box = pygame.image.load(textures['box_on_target']).convert_alpha()
-            self.box_img = pygame.transform.scale(orig_box, (350, 350))
+            self.box_img = pygame.transform.scale(orig_box, (300, 300))
             self.box_img = pygame.transform.rotate(self.box_img, -15)
         except:
             self.char_img = self.box_img = None
@@ -107,7 +111,6 @@ class SokobanMenu:
                 starting_option=f"{curr_w}x{curr_h}" if not (self.window.get_flags() & pygame.FULLSCREEN) else "Fullscreen",
                 relative_rect=pygame.Rect((cx, 550), (btn_w, 50)), manager=self.manager)
 
-            # QUAN TRỌNG: Nút BACK luôn cách cạnh dưới 120 pixel
             self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
 
     def _create_btn(self, x, y, w, h, text, obj_id):
@@ -156,8 +159,17 @@ class SokobanMenu:
 
     def draw(self, time_delta):
         self.window.blit(self.bg_pattern, (0, 0))
-        self.anim_time += time_delta
         curr_w, curr_h = self.window.get_size()
+        if self.anim_time >= 3 and not self.box_started:
+            self.fly_x2 = curr_w + 200
+            self.box_started = True
+        self.anim_time += time_delta
+
+        if self.fly_x1 > curr_w + 300:
+            self.fly_x1 = -300
+
+        if self.fly_x2 < -300:
+            self.fly_x2 = curr_w + 300
 
         font_title = pygame.font.Font(font_path, int(130 * (curr_h/900))) # Co giãn font theo màn hình
         title_surf = font_title.render("SOKOBAN", True, self.TITLE_GREEN)
@@ -167,31 +179,58 @@ class SokobanMenu:
         self.window.blit(title_surf, title_rect)
 
         if self.state == "MAIN":
-            amp = 20
-            speed = 2
-            angle = math.radians(25)
+            curr_w, curr_h = self.window.get_size()
 
-            t = self.anim_time * speed
+            # cập nhật vị trí bay ngang
+            self.fly_x1 += self.fly_speed * time_delta
+            if self.anim_time >= 3:
+                self.fly_x2 -= self.fly_speed * time_delta
 
-            # 🔹 player
-            dx = math.cos(angle) * math.sin(t) * amp
-            dy = math.sin(angle) * math.sin(t) * amp
+            # reset khi bay ra ngoài màn hình
+            if self.fly_x1 > curr_w + 200:
+                self.fly_x1 = -200
 
+            if self.fly_x2 < -200:
+                self.fly_x2 = curr_w + 200
+
+            # thời gian
+            t = self.anim_time
+
+            # ================== PLAYER (bay trên) ==================
             if self.char_img:
-                self.window.blit(
-                    self.char_img,
-                    (curr_w * 0.1 + dx, curr_h * 0.4 + dy)
-                )
 
-            t2 = t + 1.5
-            dx2 = math.cos(angle) * math.sin(t2) * amp
-            dy2 = math.sin(angle) * math.sin(t2) * amp
+                progress1 = self.fly_x1 / curr_w
 
-            if self.box_img:
-                self.window.blit(
-                    self.box_img,
-                    (curr_w * 0.7 + dx2, curr_h * 0.4 + dy2)
-                )
+                y1 = (curr_h * 0.5) - progress1 * (curr_h * 0.4)
+
+                # thêm chút cong (parabol nhẹ)
+                y1 -= 100 * (progress1 - 0.5) ** 2
+
+                # xoay nhẹ
+                angle1 = self.anim_time * 25
+                rotated_char = pygame.transform.rotate(self.char_img, angle1)
+
+                rect1 = rotated_char.get_rect(center=(self.fly_x1, y1))
+
+                self.window.blit(rotated_char, rect1)
+
+            # ================== BOX (bay dưới) ==================
+            if self.box_img and self.anim_time >= 3:
+                # lệch pha để nhìn tự nhiên
+                progress2 = self.fly_x2 / curr_w
+
+                # bay chéo xuống
+                y2 = (curr_h * 0.4) + progress2 * (curr_h * 0.5)
+
+                # cong nhẹ
+                y2 -= 100 * (progress2 - 0.5) ** 2
+
+                angle2 = -self.anim_time * 30
+                rotated_box = pygame.transform.rotate(self.box_img, angle2)
+
+                rect2 = rotated_box.get_rect(center=(self.fly_x2, y2))
+
+                self.window.blit(rotated_box, rect2)
 
         self.manager.update(time_delta)
         self.manager.draw_ui(self.window)
