@@ -33,7 +33,39 @@
     "misc": {
       "border_width": "0",
       "shadow_width": "0",
-      "text_shadow_size": "0"
+      "text_shadow_size": "0",
+      "text_horiz_alignment": "center",
+      "text_horiz_alignment_padding": "0",
+      "text_vert_alignment": "center",
+      "text_vert_alignment_padding": "-8"
+    }
+  },
+  "#instruction_panel": {
+    "colours": {
+      "dark_bg": "#1a1c2cee",
+      "normal_bg": "#1a1c2cee",
+      "normal_border": "#e43b44"
+    },
+    "misc": {
+      "border_width": "4",
+      "shadow_width": "15",
+      "shape": "rounded_rectangle",
+      "shape_corner_radius": "15"
+    }
+  },
+  "text_box": {
+    "colours": {
+      "dark_bg": "#00000000",
+      "normal_bg": "#00000000",
+      "normal_border": "#00000000"
+    },
+    "misc": {
+      "border_width": "0"
+    }
+  },
+  "#instr_text": {
+    "colours": {
+      "dark_bg": "#00000000"
     }
   },
   "#ai_btn": {
@@ -52,6 +84,27 @@
       },
       "selected_hovered_image": {
         "path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"
+      }
+    }
+  },
+  "#algo_btn": {
+    "colours": {
+      "normal_text": "#FFFFFF",
+      "hovered_text": "#DDDDDD",
+      "active_text": "#FFFFFF",
+      "selected_text": "#FFFFFF"
+    },
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
+      "active_image": {
+        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
+      },
+      "selected_image": {
+        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
+      },
+      "selected_hovered_image": {
+        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
       }
     }
   },
@@ -92,50 +145,16 @@
   },
   "#move_panel": {
     "colours": {
-      "normal_text": "#FFFFFF",
-      "hovered_text": "#FFFFFF",
-      "active_text": "#FFFFFF",
-      "selected_text": "#FFFFFF"
+      "normal_text": "#FFFFFF"
     },
     "images": {
-      "normal_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
-      "hovered_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
-      "active_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
-      "selected_image": {
-        "path": "assets/graphics/Buttons/LongRedBtnUp5x.png"
-      },
-      "selected_hovered_image": {
-        "path": "assets/graphics/Buttons/LongRedBtnUp5x.png"
-      }
-    }
-  },
-  "#algo_btn": {
-    "colours": {
-      "normal_text": "#FFFFFF",
-      "hovered_text": "#DDDDDD",
-      "active_text": "#FFFFFF",
-      "selected_text": "#FFFFFF"
-    },
-    "images": {
-      "normal_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
-      "hovered_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" },
-      "active_image": {
-        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
-      },
-      "selected_image": {
-        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
-      },
-      "selected_hovered_image": {
-        "path": "assets/graphics/Buttons/LongRedBtnDown5x.png"
-      }
+      "normal_image": { "path": "assets/graphics/Buttons/LongRedBtnUp5x.png" }
     }
   },
   "#result_btn": {
     "colours": {
       "normal_text": "#FFFFFF",
-      "hovered_text": "#DDDDDD",
-      "active_text": "#FFFFFF",
-      "selected_text": "#FFFFFF"
+      "hovered_text": "#DDDDDD"
     },
     "images": {
       "normal_image": { "path": "assets/graphics/Buttons/ShortRedBtnUp5x.png" },
@@ -146,9 +165,6 @@
         "path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"
       },
       "selected_image": {
-        "path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"
-      },
-      "selected_hovered_image": {
         "path": "assets/graphics/Buttons/ShortRedBtnDown5x.png"
       }
     }
@@ -166,9 +182,6 @@
       },
       "selected_image": {
         "path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"
-      },
-      "selected_hovered_image": {
-        "path": "assets/graphics/Buttons/LongWhiteBtnDown5x.png"
       }
     }
   },
@@ -177,13 +190,7 @@
       "normal_image": {
         "path": "assets/graphics/Buttons/TallWhitePreBtnUp5x.png"
       },
-      "hovered_image": {
-        "path": "assets/graphics/Buttons/TallWhitePreBtnUp5x.png"
-      },
       "active_image": {
-        "path": "assets/graphics/Buttons/TallWhitePreBtnDown5x.png"
-      },
-      "selected_image": {
         "path": "assets/graphics/Buttons/TallWhitePreBtnDown5x.png"
       }
     }
@@ -193,13 +200,7 @@
       "normal_image": {
         "path": "assets/graphics/Buttons/TallWhiteNextBtnUp5x.png"
       },
-      "hovered_image": {
-        "path": "assets/graphics/Buttons/TallWhiteNextBtnUp5x.png"
-      },
       "active_image": {
-        "path": "assets/graphics/Buttons/TallWhiteNextBtnDown5x.png"
-      },
-      "selected_image": {
         "path": "assets/graphics/Buttons/TallWhiteNextBtnDown5x.png"
       }
     }
@@ -207,9 +208,7 @@
   "#home_btn": {
     "images": {
       "normal_image": { "path": "assets/graphics/Buttons/HomeBtnUp5x.png" },
-      "hovered_image": { "path": "assets/graphics/Buttons/HomeBtnUp5x.png" },
-      "active_image": { "path": "assets/graphics/Buttons/HomeBtnDown5x.png" },
-      "selected_image": { "path": "assets/graphics/Buttons/HomeBtnDown5x.png" }
+      "active_image": { "path": "assets/graphics/Buttons/HomeBtnDown5x.png" }
     }
   }
 }
