@@ -1,16 +1,26 @@
 # 📦 Sokoban AI Project
 
+---
+
+Sokoban AI Solver is a project that explores the efficiency of classic search algorithms in a constrained puzzle environment. The game is modeled as a state-space search problem, allowing algorithms like A\*, BFS, and DFS to solve levels automatically.
+
 ## 👥 Development Team
 
 ---
 
-This project was delveloped by:
+This project was developed by:
 
 - **Nguyễn Thái Duy**
 - **Đinh Quang Hưng**
 - **Nguyễn Mạnh Tiến**
 
-### Credits
+## 🎓 Supervision
+
+---
+
+- **Supervised by:** **TS.Nguyễn Quốc Tuấn**
+
+### 📌 Credits
 
 ---
 
@@ -23,19 +33,26 @@ This project was delveloped by:
 
 ```bash
 SOKOBAN/
-├─ assets/               # Chứa hình ảnh, âm thanh, font chữ
-├─ levels/               # Các file cấu hình màn chơi (.txt/.json)
-├─ models/               # (Nếu có) Các logic xử lý dữ liệu
-├─ main.py               # Điểm khởi chạy chính của trò chơi
-├─ GameMenu.py           # Quản lý giao diện menu chính
-├─ level.py              # Xử lý logic tải và hiển thị màn chơi
-├─ player.py             # Điều khiển và hành động của nhân vật
-├─ solver.py             # Chứa các thuật toán AI (BFS, DFS, A*,...)
-├─ button.py             # Thành phần giao diện (UI Components)
-├─ particles.py          # Hiệu ứng hình ảnh trong game
-├─ settings.py           # Các hằng số và cấu hình hệ thống
-├─ theme.json            # Cấu hình màu sắc/giao diện
-├─ requirements.txt      # Danh sách thư viện cần thiết
+├─ assets/
+├─ levels/
+├─ menu.py
+├─ main.py
+├─ GameMenu.py
+├─ selectLevels.py
+├─ level.py
+├─ player.py
+├─ solver.py
+├─ button.py
+├─ particles.py
+├─ settings.py
+├─ theme.json
+├─ env.json
+├─ requirements.txt
+├─ radar_chart.py
+├─ README.md
+├─ assests_list.txt
+├─ run_game.sh
+├─ ARCHITECTURE.md
 ```
 
 ## 🚀 Getting Started
@@ -52,7 +69,7 @@ Ensure you have Python installed on your system. We recommend using a virtual en
 
 ---
 
-Install the required dependencies using the requirement.txt file in the project:
+Install the required dependencies using the **requirements.txt** file in the project:
 
 ```bash
     pip install -r requirements.txt
@@ -69,7 +86,10 @@ To run game Source code:
 
 ---
 
+**Control:**
+
 - **Movement:** Use 'Arrow Keys' or 'WASD'.
+- **Undo:** Use 'Ctrl + Z' to get back one step.
 - **Restart:** Press 'R' to reset current level.
 - **Navigation:** 'N' for Next Level, 'P' for Previous Level.
 - **Menu:** Use 'Mouse Click' for UI interaction.
@@ -79,20 +99,21 @@ To run game Source code:
 
 - The goal for Sokoban is to push all of the boxes onto the goals:
 - Player cannot move through walls or boxes
-- Only 1 box can be push at a time
+- Only 1 box can be pushed at a time
 - Puzzle is solved once every boxes are on the goals
 
 ### 🤖 AI Solver Features
 
 ---
 
-The project includes a dedicated autonomous solving engine located in solver.py, designed to compute the most efficient paths for complex puzzles.
-**Implemented Algorithms:**
+The AI solver is implemented in **solver.py** and supports:
 
-- [x] A Search:Utilizes optimized heuristics to find the shortest path.
+- **BFS (Breadth-First Search)** - guarantees a solution.
+- **DFS (Depth-First Search)** - faster but not optimal.
+- **A\*** - efficient with heuristic guidance.
 
-* **[x] BFS (Breadth-First Search)**: Guarantees the optimal solution for moves.
-* [x] DPS
+- **Dijkstra** - ensures shortest path without heuristic.
+- **Best-First Search** - fast heuristic-based exploration.
 
 ### 📸 Screenshots
 
@@ -102,6 +123,6 @@ The project includes a dedicated autonomous solving engine located in solver.py,
 
 ---
 
-- [ ] Implenment **IDA** search algorithm.
-- [ ] Implenment **RBFS** (Recursive Best-First Search).
-- [ ] Implenment **MCTS** (Monte Carlo Tree Search).
+- [ ] Implement **IDA** search algorithm.
+- [ ] Implement **RBFS** (Recursive Best-First Search).
+- [ ] Implement **MCTS** (Monte Carlo Tree Search).

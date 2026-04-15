@@ -20,6 +20,8 @@ class LevelSelection:
         self.dark_overlay.fill((0, 0, 0))
         self.dark_overlay.set_alpha(150)
 
+        self.BORDER_BROWN = (71, 45, 60)
+
         self.current_level = 0
         self.selected_level = None
 
@@ -159,6 +161,8 @@ class LevelSelection:
                 return "HOME", self.current_level
         return None, None
 
+
+
     def draw(self):
         self.screen.blit(self.bg_pattern, (0, 0))
         self.screen.blit(self.dark_overlay, (0, 0))
@@ -252,3 +256,6 @@ class LevelSelection:
 
         self.manager.update(0.016)
         self.manager.draw_ui(self.screen)
+
+        curr_w, curr_h = self.screen.get_size()
+        pygame.draw.rect(self.screen, self.BORDER_BROWN, (0, 0, curr_w, curr_h), 5)

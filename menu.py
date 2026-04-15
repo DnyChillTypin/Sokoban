@@ -19,6 +19,7 @@ class SokobanMenu:
         # Màu sắc tiêu đề
         self.TITLE_GREEN = (0, 255, 127)
         self.DARK_SHADOW = (0, 50, 0)
+        self.BORDER_BROWN = (71, 45, 60) 
 
         curr_w, curr_h = self.window.get_size()
         self.dark_overlay = pygame.Surface((curr_w, curr_h))
@@ -155,6 +156,12 @@ class SokobanMenu:
         self.manager.process_events(event)
         return None
 
+    def draw_custom_border(self):
+        w, h = self.window.get_size()
+        border_color = (54, 40, 48) 
+        
+        pygame.draw.rect(self.window, border_color, (0, 0, w, h), 5)
+
     def draw(self, time_delta):
         self.window.blit(self.bg_pattern, (0, 0))
         self.window.blit(self.dark_overlay, (0, 0))
@@ -239,3 +246,6 @@ class SokobanMenu:
         
         self.manager.update(time_delta)
         self.manager.draw_ui(self.window)
+
+        curr_w, curr_h = self.window.get_size()
+        pygame.draw.rect(self.window, self.BORDER_BROWN, (0, 0, curr_w, curr_h), 5)
