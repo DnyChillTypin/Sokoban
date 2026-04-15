@@ -46,6 +46,12 @@ class LevelSelection:
             self.target_red_img, (scaled_tile, scaled_tile)
         )
 
+        self.input_active = False
+        self.input_text = ""
+
+        self.cursor_timer = 0
+        self.cursor_visible = True
+
     def _setup_ui(self):
         btn_w = 80
         btn_h = 250
@@ -116,7 +122,7 @@ class LevelSelection:
 
         surface.blit(player_img, (player_x, player_y))
 
-        DESIRED_TILE = 60
+        DESIRED_TILE = 64
 
         current_tile = scaled_tile
 
@@ -127,7 +133,7 @@ class LevelSelection:
 
         self.preview_img = pygame.transform.smoothscale(surface, (preview_w, preview_h))
 
-        TOP_OFFSET = 230
+        TOP_OFFSET = 200
 
         self.preview_rect = pygame.Rect(
             (self.width - preview_w) // 2,
@@ -144,6 +150,9 @@ class LevelSelection:
                 mouse_pos = event.pos
                 if self.preview_rect.collidepoint(mouse_pos):
                     return "START", self.current_level
+                if hasattr(self, "title_rect") and self.title_rect.collidepoint(mouse_pos):
+                    self.input_active = True
+                    self.input_text = ""
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
 
@@ -157,11 +166,36 @@ class LevelSelection:
 
             elif event.ui_element == self.home_btn:
                 return "HOME", self.current_level
+
+        if event.type == pygame.KEYDOWN and self.input_active:
+
+            if event.key == pygame.K_RETURN:
+                if self.input_text.isdigit():
+                    new_level = int(self.input_text) - 1
+
+                    if os.path.exists(f"levels/{new_level}.txt"):
+                        self.current_level = new_level
+                        self._load_level_preview()
+
+                self.input_active = False
+
+            elif event.key == pygame.K_BACKSPACE:
+                self.input_text = self.input_text[:-1]
+
+            else:
+                if event.unicode.isdigit():
+                    self.input_text += event.unicode
         return None, None
 
     def draw(self):
         self.screen.blit(self.bg_pattern, (0, 0))
         self.screen.blit(self.dark_overlay, (0, 0))
+
+        self.cursor_timer += 0.016
+
+        if self.cursor_timer >= 0.5:
+            self.cursor_visible = not self.cursor_visible
+            self.cursor_timer = 0
 
         mouse_pos = pygame.mouse.get_pos()
         hover = self.preview_rect.collidepoint(mouse_pos)
@@ -201,12 +235,12 @@ class LevelSelection:
                 self.screen.blit(target_img, (x, y))
 
         if hover:
-            border_thickness = 3
+            border_thickness = 5
             offset = border_thickness
 
             pygame.draw.rect(
                 self.screen,
-                (255, 45, 45),
+                (233, 79, 53),
                 (
                     draw_x - offset,
                     draw_y - offset,
@@ -218,21 +252,39 @@ class LevelSelection:
 
         font = pygame.font.Font(font_path, 80)
 
-        txt = font.render(
-            f"LEVEL {self.current_level + 1}", True, (0, 255, 127)
-        )
+        if self.input_active:
+            display_text = f"LEVEL {self.input_text}" if self.input_text else "LEVEL"
+        else:
+            display_text = f"LEVEL {self.current_level + 1}"
 
-        shadow = font.render(
-            f"LEVEL {self.current_level + 1}", True, (0, 50, 0)
-        )
+        txt = font.render(display_text, True, (0, 255, 127))
+
+        shadow = font.render(display_text, True, (0, 50, 0))
 
         TITLE_Y = 80
         level_x = self.preview_rect.centerx - txt.get_width() // 2
         level_y = TITLE_Y
 
+        self.title_rect = pygame.Rect(
+            level_x,
+            level_y,
+            txt.get_width(),
+            txt.get_height()
+        )
+
         self.screen.blit(shadow, (level_x + 5, level_y + 5))
 
         self.screen.blit(txt, (level_x, level_y))
+
+        if self.input_active:
+            cursor = "_" if self.cursor_visible else ""
+
+            cursor_surf = font.render(cursor, True, (0, 255, 127))
+
+            cursor_x = level_x + txt.get_width() + 5
+            cursor_y = level_y
+
+            self.screen.blit(cursor_surf, (cursor_x, cursor_y))
 
         box_font = pygame.font.Font(font_path, 50)
 
