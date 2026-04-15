@@ -11,9 +11,9 @@ class LevelSelection:
         self.manager = pygame_gui.UIManager(
             (window_width, window_height), UI_THEME
         )
-        self.width, self.height = screen.get_size()
+        self.width, self.height = window_width, window_height
 
-        self.font = pygame.font.SysFont(font_path, 24)
+        self.font = pygame.font.Font(font_path, 24)
         self.bg_pattern = self.create_bg_pattern()
 
         self.dark_overlay = pygame.Surface((self.width, self.height))
@@ -68,7 +68,7 @@ class LevelSelection:
         )
 
     def create_bg_pattern(self):
-        curr_w, curr_h = self.screen.get_size()
+        curr_w, curr_h = window_width, window_height
         dark_tile = pygame.image.load(textures['menu_dark']).convert_alpha()
         light_tile = pygame.image.load(textures['menu_light']).convert_alpha()
         tw, th = dark_tile.get_size()
@@ -177,11 +177,11 @@ class LevelSelection:
         level_name = "TEST LEVEL" if self.current_level == 'test' else f"LEVEL {self.current_level + 1}"
 
         txt = font.render(
-            level_name, True, (0, 255, 127)
+            level_name, False, (0, 255, 127)
         )
 
         shadow = font.render(
-            level_name, True, (0, 50, 0)
+            level_name, False, (0, 50, 0)
         )
 
         TITLE_Y = 80
@@ -195,10 +195,10 @@ class LevelSelection:
         box_font = pygame.font.Font(font_path, 50)
 
         box_text = box_font.render(
-            f"Boxes: {self.box_count}", True, (0, 255, 127)
+            f"Boxes: {self.box_count}", False, (0, 255, 127)
         )
         shadow = box_font.render(
-            f"Boxes: {self.box_count}", True, (0, 50, 0)
+            f"Boxes: {self.box_count}", False, (0, 50, 0)
         )
 
         BOX_Y = 800

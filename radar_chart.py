@@ -139,7 +139,7 @@ class RadarChart:
         # Render text surfaces
         padding_x, padding_y = 14, 10
         line_spacing = 6
-        text_surfs = [self.font.render(line, True, (220, 220, 220)) for line in tooltip_lines]
+        text_surfs = [self.font.render(line, False, (220, 220, 220)) for line in tooltip_lines]
 
         max_text_w = max(s.get_width() for s in text_surfs)
         total_text_h = sum(s.get_height() for s in text_surfs) + line_spacing * (len(text_surfs) - 1)
@@ -182,7 +182,7 @@ class RadarChart:
             return
 
         # Render text (Cream color)
-        text_surf = self.font.render(desc, True, (248, 244, 239))
+        text_surf = self.font.render(desc, False, (248, 244, 239))
 
         padding_x, padding_y = 14, 10
         box_w = text_surf.get_width() + padding_x * 2
@@ -245,7 +245,7 @@ class RadarChart:
             label_text = self.metrics[i]
             lx = cx + (self.radius + 35) * math.cos(angle)
             ly = cy + (self.radius + 35) * math.sin(angle)
-            txt_surf = self.font.render(label_text, True, (248, 244, 239)) # Cream color
+            txt_surf = self.font.render(label_text, False, (248, 244, 239)) # Cream color
             rect = txt_surf.get_rect(center=(lx, ly))
             surface.blit(txt_surf, rect)
             self.axis_hitboxes.append((label_text, rect))
@@ -315,7 +315,7 @@ class RadarChart:
                 lx, ly = row_start_x + (i * spacing), start_y
                 pygame.draw.rect(surface, color, (lx, ly, 20, 20))
                 display_name = "A" if algo.lower() == "a*" else algo.upper()
-                txt_surf = self.font.render(display_name, True, (255, 255, 255))
+                txt_surf = self.font.render(display_name, False, (255, 255, 255))
                 surface.blit(txt_surf, (lx + 30, ly))
                 if algo.lower() == "a*": draw_pixel_star(surface, lx + 30 + txt_surf.get_width() + 6, ly + 6, (255, 255, 255))
                 text_w = txt_surf.get_width() + (16 if algo.lower() == "a*" else 0)

@@ -387,7 +387,7 @@ class GameMenu:
         
         # Render Text Helper
         def draw_text(text, btn, color=(255, 255, 255), manual_y=None):
-            surf = self.custom_font.render(text, True, color)
+            surf = self.custom_font.render(text, False, color)
             base_y = manual_y if manual_y is not None else (37 if btn.is_selected else 32)
             rect = surf.get_rect(centerx=btn.rect.centerx, centery=btn.rect.y + base_y)
             if btn.held and btn.is_enabled: rect.y += 5

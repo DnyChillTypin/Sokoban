@@ -4,6 +4,11 @@ import os
 import time
 import pygame_gui
 
+# Force nearest-neighbor (pixel-perfect) scaling globally.
+# Without this, SDL uses bilinear filtering when FULLSCREEN|SCALED upscales
+# the 1600x900 surface, causing blurry/torn pixel fonts in fullscreen.
+os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
+
 from settings import *
 from level import Level
 from player import Player
@@ -12,6 +17,7 @@ from menu import SokobanMenu
 from selectLevels import LevelSelection
 from solver import SokobanSolver
 from particles import ParticleManager
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 class Game:
     def __init__(self):
@@ -20,7 +26,7 @@ class Game:
         pygame.display.set_caption('Sokoban AI')
         
         self.bg_image = pygame.image.load(textures['bg_image_path']).convert_alpha()
-        self.bg_rect = self.bg_image.get_rect(midbottom=self.screen.get_rect().midbottom)
+        self.bg_rect = self.bg_image.get_rect(midbottom=(window_width // 2, window_height))
         self.clock = pygame.time.Clock()
         self.running = True
 
@@ -34,7 +40,7 @@ class Game:
         self.menu = GameMenu()
         
         # Playback Variables
-        self.is_playing_back = False
+        self.is_playing_back = False 
         self.playback_path = []
         self.playback_timer = 0
         self.playback_speed = 100 
@@ -289,11 +295,11 @@ class Game:
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0, 0))
 
-        txt = self.font_large.render("Are you sure?", True, (255, 255, 255))
+        txt = self.font_large.render("Are you sure?", False, (255, 255, 255))
         rect = txt.get_rect(center=(window_width // 2, window_height // 2 - 100))
         self.screen.blit(txt, rect)
 
-        yes_txt = self.font_small.render("Yes", True, (255, 100, 100))
+        yes_txt = self.font_small.render("Yes", False, (255, 100, 100))
         self.yes_rect = yes_txt.get_rect(center=(window_width // 2 - 150, window_height // 2 + 100))
         
         mouse_pos = pygame.mouse.get_pos()
@@ -301,7 +307,7 @@ class Game:
             pygame.draw.rect(self.screen, (50, 0, 0), self.yes_rect.inflate(40, 20), border_radius=10)
         self.screen.blit(yes_txt, self.yes_rect)
 
-        no_txt = self.font_small.render("No", True, (100, 255, 100))
+        no_txt = self.font_small.render("No", False, (100, 255, 100))
         self.no_rect = no_txt.get_rect(center=(window_width // 2 + 150, window_height // 2 + 100))
         
         if self.no_rect.collidepoint(mouse_pos):
@@ -469,7 +475,7 @@ class Game:
             self.screen.blit(self.win_overlay, (0, 0))
             
             # Render Congrats Text
-            congrats_surf = self.font_large.render("!!! Congrats !!!", True, (255, 255, 255))
+            congrats_surf = self.font_large.render("!!! Congrats !!!", False, (255, 255, 255))
             self.screen.blit(congrats_surf, congrats_surf.get_rect(center=(window_width // 2, (window_height // 2) - 100)))
             
             # Helper to draw action box
@@ -482,12 +488,12 @@ class Game:
                 pygame.draw.rect(self.screen, (200, 200, 200), box_rect, 3, border_radius=15)
                 
                 # Render Key (Top)
-                key_surf = self.font_small.render(key_txt, True, (255, 255, 255))
+                key_surf = self.font_small.render(key_txt, False, (255, 255, 255))
                 key_rect = key_surf.get_rect(center=(center_x, center_y - 25))
                 self.screen.blit(key_surf, key_rect)
                 
                 # Render Action (Bottom)
-                action_surf = self.font_tiny.render(action_txt, True, (180, 180, 180))
+                action_surf = self.font_tiny.render(action_txt, False, (180, 180, 180))
                 action_rect = action_surf.get_rect(center=(center_x, center_y + 35))
                 self.screen.blit(action_surf, action_rect)
 

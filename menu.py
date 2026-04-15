@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 import os
 from settings import *
+from settings import window_width, window_height
 
 class SokobanMenu:
     def __init__(self, screen):
@@ -28,7 +29,8 @@ class SokobanMenu:
         self.setup_ui()
 
     def create_bg_pattern(self):
-        curr_w, curr_h = self.window.get_size()
+        curr_w = window_width
+        curr_h = window_height
         dark_tile = pygame.image.load(textures['menu_dark']).convert_alpha()
         light_tile = pygame.image.load(textures['menu_light']).convert_alpha()
         tw, th = dark_tile.get_size()
@@ -52,7 +54,8 @@ class SokobanMenu:
     def setup_ui(self):
         """Tính toán vị trí dựa trên phần trăm hoặc khoảng cách từ cạnh dưới"""
         self.manager.clear_and_reset()
-        curr_w, curr_h = self.window.get_size()
+        curr_w = window_width
+        curr_h = window_height
         self.manager.set_window_resolution((curr_w, curr_h))
         
         btn_w, btn_h = 420, 95
@@ -95,14 +98,10 @@ class SokobanMenu:
             self.sfx_btn = self._create_btn(cx, 385, btn_w, btn_h, 
                                            f"SOUND FX: {'ON' if self.is_sfx_on else 'OFF'}", "#ai_btn")
             
-            self.res_label = pygame_gui.elements.UILabel(
-                relative_rect=pygame.Rect((cx, 500), (btn_w, 40)),
-                text="RESOLUTION", manager=self.manager, object_id="#ai_btn")
-            
-            self.res_drop = pygame_gui.elements.UIDropDownMenu(
-                options_list=["1600x900", "1280x720", "Fullscreen"],
-                starting_option=f"{curr_w}x{curr_h}" if not (self.window.get_flags() & pygame.FULLSCREEN) else "Fullscreen",
-                relative_rect=pygame.Rect((cx, 550), (btn_w, 50)), manager=self.manager)
+            # Side-by-side Resolution Buttons
+            small_btn_w = (btn_w - 20) // 2
+            self.res_1600_btn = self._create_btn(cx, 500, small_btn_w, btn_h, "1600x900", "#ai_btn")
+            self.res_full_btn = self._create_btn(cx + small_btn_w + 20, 500, small_btn_w, btn_h, "FULLSCREEN", "#ai_btn")
             
             # QUAN TRỌNG: Nút BACK luôn cách cạnh dưới 120 pixel
             self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
@@ -113,15 +112,19 @@ class SokobanMenu:
             text=text, manager=self.manager, object_id=obj_id)
 
     def change_resolution(self, resolution_str):
+        """
+        Switch between fullscreen and windowed 1600x900.
+        Nearest-neighbor scaling (SDL_RENDER_SCALE_QUALITY=0) is used to
+        keep pixel fonts crisp and tear-free when GPU-scaled to fullscreen.
+        """
         if resolution_str == "Fullscreen":
-            pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            # Force nearest-neighbor scaling BEFORE creating fullscreen mode
+            # so pixel art and text scale with hard edges, not blurry bilinear
+            os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
+            pygame.display.set_mode((window_width, window_height), pygame.FULLSCREEN | pygame.SCALED)
         else:
-            w, h = map(int, resolution_str.split('x'))
-            os.environ['SDL_VIDEO_CENTERED'] = '1' # Đảm bảo ra giữa màn hình
-            pygame.display.set_mode((w, h))
-        
-        self.bg_pattern = self.create_bg_pattern()
-        self.setup_ui()
+            os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
+            pygame.display.set_mode((window_width, window_height))
 
     def handle_events(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -143,22 +146,25 @@ class SokobanMenu:
                 if ui == self.sfx_btn:
                     self.is_sfx_on = not self.is_sfx_on
                     self.setup_ui()
+                if ui == getattr(self, 'res_1600_btn', None):
+                    self.change_resolution("1600x900")
+                if ui == getattr(self, 'res_full_btn', None):
+                    self.change_resolution("Fullscreen")
 
-        if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-            if event.ui_element == self.res_drop:
-                self.change_resolution(event.text)
+
 
         self.manager.process_events(event)
         return None
 
     def draw(self, time_delta):
         self.window.blit(self.bg_pattern, (0, 0))
-        curr_w, curr_h = self.window.get_size()
+        curr_w = window_width
+        curr_h = window_height
         
         font_title = pygame.font.Font(font_path, int(130 * (curr_h/900))) # Co giãn font theo màn hình
-        title_surf = font_title.render("SOKOBAN", True, self.TITLE_GREEN)
+        title_surf = font_title.render("SOKOBAN", False, self.TITLE_GREEN)
         title_rect = title_surf.get_rect(center=(curr_w // 2, curr_h * 0.2)) # Tiêu đề luôn ở 20% chiều cao
-        shadow = font_title.render("SOKOBAN", True, self.DARK_SHADOW)
+        shadow = font_title.render("SOKOBAN", False, self.DARK_SHADOW)
         self.window.blit(shadow, (title_rect.x + 6, title_rect.y + 6))
         self.window.blit(title_surf, title_rect)
 

@@ -380,7 +380,7 @@ class SokobanSolver:
                 self._update_spinner(iterations, "BFS", line_offset)
                 yield ("RUNNING", None)
 
-            if time.time() - start_time > 120.0: 
+            if time.time() - start_time > 86400.0: 
                 self._clear_spinner()
                 yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
                 return
@@ -416,7 +416,7 @@ class SokobanSolver:
                 self._update_spinner(iterations, "DFS", line_offset)
                 yield ("RUNNING", None)
 
-            if time.time() - start_time > 120.0:
+            if time.time() - start_time > 86400.0:
                 self._clear_spinner()
                 yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
                 return
@@ -454,7 +454,7 @@ class SokobanSolver:
                 self._update_spinner(iterations, "A*", line_offset)
                 yield ("RUNNING", None)
 
-            if time.time() - start_time > 120.0:
+            if time.time() - start_time > 86400.0:
                 self._clear_spinner()
                 yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
                 return
@@ -537,7 +537,7 @@ class SokobanSolver:
                 self._update_spinner(iterations, "BestFS", line_offset)
                 yield ("RUNNING", None)
 
-            if time.time() - start_time > 120.0:
+            if time.time() - start_time > 86400.0:
                 self._clear_spinner()
                 yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
                 return
@@ -577,7 +577,7 @@ class SokobanSolver:
                 self._update_spinner(iterations, "Dijkstra", line_offset)
                 yield ("RUNNING", None)
 
-            if time.time() - start_time > 120.0:
+            if time.time() - start_time > 86400.0:
                 self._clear_spinner()
                 yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
                 return
