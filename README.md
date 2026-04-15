@@ -123,7 +123,7 @@ The game features dynamic input tracking and quality-of-life puzzle shortcuts.
 Created as an advanced data structures and AI testbed.
 
 **Development Team:**
-- [Nguyễn Thái Duy] ⭐(https://github.com/DnyChillTypin)
+- [Nguyễn Thái Duy](https://github.com/DnyChillTypin) ⭐
 - [Đinh Quang Hưng](https://github.com/hwngdominate05)
 - [Nguyễn Mạnh Tiến](https://github.com/NguyenManhTien1505)
 
