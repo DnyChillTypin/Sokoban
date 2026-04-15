@@ -105,27 +105,6 @@ class SokobanMenu:
             self.setting_btn = self._create_btn(cx, start_y + 270, btn_w, btn_h, "", "#menu_settings")
             self.quit_btn = self._create_btn(cx, start_y + 405, btn_w, btn_h, "", "#menu_quit")
 
-        elif self.state == "INSTRUCTION":
-            # Tính toán kích thước hộp văn bản linh hoạt
-            box_w, box_h = int(curr_w * 0.6), int(curr_h * 0.4)
-            box_x = curr_w // 2 - box_w // 2
-            box_y = curr_h // 2 - box_h // 2
-            
-            # Nội dung hướng dẫn cho người chơi
-            text = ("<font color='#FFFFFF' size=5><b>HƯỚNG DẪN CHƠI:</b><br><br>"
-                    "- <b>Di chuyển:</b> Sử dụng các phím mũi tên hoặc W, A, S, D.<br>"
-                    "- <b>Mục tiêu:</b> Đẩy tất cả các thùng vào vị trí đánh dấu X.<br>"
-                    "- <b>Chơi lại:</b> Nhấn phím <b>R</b> nếu bạn bị kẹt.<br>"
-                    "- <b>Hoàn tác:</b> Nhấn phím <b>Z</b> để lùi lại một bước.<br>"
-                    "- <b>Gợi ý:</b> Nhấn nút <b>HINT</b> để xem AI chỉ cách di chuyển.</font>")
-            
-            self.help_box = pygame_gui.elements.UITextBox(
-                html_text=text, 
-                manager=self.manager,
-                relative_rect=pygame.Rect((box_x, box_y), (box_w, box_h)))
-            
-            # Nút BACK luôn nằm dưới hộp văn bản và cách cạnh dưới an toàn
-            self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
 
         elif self.state == "OPTIONS":
             # Đẩy các option lên cao hơn
@@ -168,7 +147,7 @@ class SokobanMenu:
             ui = event.ui_element
             if self.state == "MAIN":
                 if ui == self.play_btn: return "START_GAME"
-                if ui == self.instr_btn: self.state = "INSTRUCTION"; self.setup_ui()
+                if ui == self.instr_btn: return "START_TUTORIAL"
                 if ui == self.setting_btn: self.state = "OPTIONS"; self.setup_ui()
                 if ui == self.quit_btn: return "QUIT"
             elif ui == getattr(self, 'back_btn', None):

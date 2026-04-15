@@ -3,6 +3,7 @@ import sys
 import os
 import time
 import pygame_gui
+import random
 
 # Force nearest-neighbor (pixel-perfect) scaling globally.
 # Without this, SDL uses bilinear filtering when FULLSCREEN|SCALED upscales
@@ -146,15 +147,14 @@ class Game:
 
                 # Confetti Burst Trick: If a box was pushed onto a target, trigger burst
                 if pushed_box_pos:
-                    self.shake(0.2, 5.0) # Shake on ANY push
                     if pushed_box_pos in self.level.targets:
                         bx, by = pushed_box_pos
                         pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
                         pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
                         self.particle_manager.burst(pixel_x, pixel_y, count=30)
             else:
-                # We hit a wall if we didn't move
-                self.shake(0.15, 3.0)
+                # Shake ONLY if player attempted to move but state stayed the same (hit a wall/blocked)
+                self.shake(0.2, 5.0)
                     
             return True 
     def shake(self, duration, intensity):
@@ -255,6 +255,10 @@ class Game:
                     
                     if menu_action == "START_GAME":
                         self.game_state = "LEVEL_SELECT"
+                    elif menu_action == "START_TUTORIAL":
+                        self.current_level_num = "tutorial"
+                        self.game_state = "GAMEPLAY"
+                        self.load_current_level()
                     elif menu_action == "QUIT":
                         self.game_state = "QUIT_PROMPT"
                 
@@ -349,6 +353,9 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         if self.current_level_num == 'test':
+                            self.current_level_num = 0
+                        elif isinstance(self.current_level_num, str):
+                            # Default back to level 0 if we were in tutorial or other custom string level
                             self.current_level_num = 0
                         else:
                             self.current_level_num += 1
