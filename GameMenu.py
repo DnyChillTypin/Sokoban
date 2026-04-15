@@ -111,9 +111,9 @@ class GameMenu:
         tgl_w, tgl_h = 80, 240
         self.toggle_btn = self._create_btn(menu_width - (tgl_w // 2), (window_height // 2) - (tgl_h // 2), tgl_w, tgl_h, '#toggle_btn')
 
-        # Home / Settings Tray
+        # Home / Settings Tray - Shifted by 5px for border padding
         tray_w, tray_h = 280, 100
-        tray_x, tray_y = 10, window_height - tray_h - 10
+        tray_x, tray_y = 10, window_height - tray_h - 15
         self.tray_panel = pygame_gui.elements.UIPanel(
             relative_rect=pygame.Rect(tray_x, tray_y, tray_w, tray_h),
             starting_height=2,

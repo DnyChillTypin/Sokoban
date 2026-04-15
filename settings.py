@@ -13,6 +13,8 @@ ALGORITHMS = ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']
 UI_THEME = 'theme.json'
 
 font_path = 'assets/BoldPixels.ttf'
+BORDER_COLOR = (71, 45, 60) # #472d3c
+BORDER_WIDTH = 5
 
 tile_mapping = {
     '0': 'ground',
@@ -38,6 +40,7 @@ textures = {
     
     # Hint & Dead State
     'red_box': 'assets/graphics/interactables/BoxRed.png',
+    'red_target': 'assets/graphics/interactables/ButtonUpRed.png',
     'blue_box': 'assets/graphics/interactables/BoxBlue.png',
     'blue_target': 'assets/graphics/interactables/ButtonUpBlue.png',
     
@@ -49,6 +52,9 @@ textures = {
     'Bomb_explode_1': 'assets/graphics/items/Explode1.png',
     'Bomb_explode_2': 'assets/graphics/items/Explode2.png',
     'Bomb_explode_3': 'assets/graphics/items/Explode3.png',
+    
+    'FlowerBlue':'assets/graphics/props/FlowerBlue.png',
+    'FlowerWhite':'assets/graphics/props/FlowerWhite.png',
     
     # UI & Menus
     'menu_dark': 'assets/graphics/Buttons/MenuFloorDark5x.png',

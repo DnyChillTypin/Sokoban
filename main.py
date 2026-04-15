@@ -60,6 +60,11 @@ class Game:
         self.font_tiny = pygame.font.Font(font_path, 30)
         self.win_overlay = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
         self.win_overlay.fill((0, 0, 0, 128)) 
+        
+        # --- Screen Shake State ---
+        self.shake_amount = 0.0
+        self.shake_timer = 0.0
+        self.shake_offset = [0, 0]
 
         if os.path.exists('levels/test.txt'):
             self.current_level_num = 'test'
@@ -140,14 +145,21 @@ class Game:
                 self.menu.reset_ai_menu()
 
                 # Confetti Burst Trick: If a box was pushed onto a target, trigger burst
-                if pushed_box_pos and pushed_box_pos in self.level.targets:
-                    bx, by = pushed_box_pos
-                    pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
-                    pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
-                    self.particle_manager.burst(pixel_x, pixel_y, count=30)
+                if pushed_box_pos:
+                    self.shake(0.2, 5.0) # Shake on ANY push
+                    if pushed_box_pos in self.level.targets:
+                        bx, by = pushed_box_pos
+                        pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
+                        pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
+                        self.particle_manager.burst(pixel_x, pixel_y, count=30)
+            else:
+                # We hit a wall if we didn't move
+                self.shake(0.15, 3.0)
                     
             return True 
-        return False
+    def shake(self, duration, intensity):
+        self.shake_timer = duration
+        self.shake_amount = intensity
 
     def execute_hint(self):
         solver = SokobanSolver(self.level)
@@ -432,6 +444,17 @@ class Game:
         self.menu.update(time_delta)
         self.particle_manager.update(time_delta)
         
+        # Update Screen Shake
+        if self.shake_timer > 0:
+            self.shake_timer -= time_delta
+            self.shake_offset = [random.uniform(-self.shake_amount, self.shake_amount),
+                                 random.uniform(-self.shake_amount, self.shake_amount)]
+            # Exponential dampen
+            self.shake_amount *= 0.9 
+        else:
+            self.shake_offset = [0, 0]
+            self.shake_amount = 0
+        
         if self.hint_timer > 0:
             self.hint_timer -= time_delta
             if self.hint_timer <= 0: self.hint_box_pos = None 
@@ -478,7 +501,12 @@ class Game:
                 px, py = self.hint_box_pos
                 self.map_surface.blit(self.red_box_img, (px * scaled_tile, py * scaled_tile))
 
-        self.screen.blit(self.map_surface, self.map_rect)
+        # Apply Screen Shake Offset
+        shaken_rect = self.map_rect.copy()
+        shaken_rect.x += int(self.shake_offset[0])
+        shaken_rect.y += int(self.shake_offset[1])
+        
+        self.screen.blit(self.map_surface, shaken_rect)
         self.particle_manager.draw(self.screen)
         self.menu.draw(self.screen)
         

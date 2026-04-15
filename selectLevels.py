@@ -39,7 +39,32 @@ class LevelSelection:
         self.level_cache = {}
 
         self._setup_ui()
+        self.level_ref = None
+        self.box_positions = []
+        self.target_positions = []
+
         self._load_level_preview()
+
+        # Hover Highlight Assets
+        self.box_red_img = pygame.transform.scale(
+            pygame.image.load(textures['red_box']).convert_alpha(),
+            (scaled_tile, scaled_tile)
+        )
+        self.target_red_img = pygame.transform.scale(
+            pygame.image.load(textures['red_target']).convert_alpha(),
+            (scaled_tile, scaled_tile)
+        )
+
+        # Level Search Bar State
+        self.input_active = False
+        self.input_text = ""
+        self.cursor_timer = 0
+        self.cursor_visible = True
+        self.title_rect = pygame.Rect(0, 0, 0, 0)
+        
+        # Smooth Juice: Hover Scale
+        self.hover_scale = 1.0
+        self.target_scale = 1.0
 
     def _setup_ui(self):
         btn_w = 80
@@ -48,9 +73,9 @@ class LevelSelection:
 
         center_y = (window_height - btn_h) // 2
 
-        # Home / Settings Tray
+        # Home / Settings Tray - Shifted by 5px for border padding
         tray_w, tray_h = 280, 100
-        tray_x, tray_y = 10, window_height - tray_h - 10
+        tray_x, tray_y = 15, window_height - tray_h - 10
         self.tray_panel = pygame_gui.elements.UIPanel(
             relative_rect=pygame.Rect(tray_x, tray_y, tray_w, tray_h),
             starting_height=2,
@@ -129,18 +154,19 @@ class LevelSelection:
         player_x = level.player_start_x * scaled_tile
         player_y = level.player_start_y * scaled_tile
 
+        self.box_positions = level.boxes.copy()
+        self.target_positions = list(level.targets)
+        self.level_ref = level
+
         surface.blit(player_img, (player_x, player_y))
 
-        DESIRED_TILE = 60
+        # Consistent 3x scaling for EVERY map
+        target_tile = 48 
 
-        current_tile = scaled_tile
+        preview_w = level.columns * target_tile
+        preview_h = level.rows * target_tile
 
-        scale = DESIRED_TILE / current_tile
-
-        preview_w = int(map_width * scale)
-        preview_h = int(map_height * scale)
-
-        self.preview_img = pygame.transform.smoothscale(surface, (preview_w, preview_h))
+        self.preview_img = pygame.transform.scale(surface, (preview_w, preview_h))
 
         TOP_OFFSET = 230
 
@@ -165,8 +191,34 @@ class LevelSelection:
                 mouse_pos = event.pos
                 if self.preview_rect.collidepoint(mouse_pos):
                     return "START", self.current_level
+                
+                # Check for click on Level title to search
+                if self.title_rect.collidepoint(mouse_pos):
+                    self.input_active = True
+                    self.input_text = ""
+                else:
+                    self.input_active = False
 
         if event.type == pygame.KEYDOWN:
+            if self.input_active:
+                if event.key == pygame.K_RETURN:
+                    if self.input_text.isdigit():
+                        new_level = int(self.input_text) - 1
+                        # Find index of requested level if it exists
+                        if new_level in self.available_levels:
+                            self.current_level_idx = self.available_levels.index(new_level)
+                            self._load_level_preview()
+                    self.input_active = False
+                elif event.key == pygame.K_BACKSPACE:
+                    self.input_text = self.input_text[:-1]
+                elif event.key == pygame.K_ESCAPE:
+                    self.input_active = False
+                else:
+                    if event.unicode.isdigit() and len(self.input_text) < 3: # Limit to 3 digits
+                        self.input_text += event.unicode
+                return None, None # Prevent normal navigation while typing
+
+            # Normal navigation
             alt_pressed = bool(pygame.key.get_mods() & (pygame.KMOD_LALT | pygame.KMOD_RALT))
             nav_left = (event.key == pygame.K_a) or (event.key == pygame.K_LEFT)
             nav_right = (event.key == pygame.K_d) or (event.key == pygame.K_RIGHT)
@@ -191,30 +243,104 @@ class LevelSelection:
 
     def draw(self):
         self.screen.blit(self.bg_pattern, (0, 0))
-
         self.screen.blit(self.dark_overlay, (0, 0))
 
-        self.screen.blit(self.preview_img, self.preview_rect)
+        # --- NEW: Map Selection Highlight & Zoom Logic ---
+        mouse_pos = pygame.mouse.get_pos()
+        hover = self.preview_rect.collidepoint(mouse_pos)
+        
+        # Smoothly interpolate scale (Juice!)
+        self.target_scale = 1.15 if hover else 1.0
+        self.hover_scale += (self.target_scale - self.hover_scale) * 0.15
+        
+        # Calculate zoomed dimensions
+        scaled_w = int(self.preview_rect.width * self.hover_scale)
+        scaled_h = int(self.preview_rect.height * self.hover_scale)
+        
+        # Center the zoomed image on the original rect's center
+        draw_x = self.preview_rect.centerx - scaled_w // 2
+        draw_y = self.preview_rect.centery - scaled_h // 2
+        
+        # Draw the (potentially zoomed) base preview
+        # We use smoothscale for the animation to prevent pixel-jittering while zooming
+        zoomed_img = pygame.transform.smoothscale(self.preview_img, (scaled_w, scaled_h))
+        self.screen.blit(zoomed_img, (draw_x, draw_y))
+
+        if hover and self.level_ref:
+            # Draw red border (zoomed)
+            border_thickness = 5
+            pygame.draw.rect(
+                self.screen,
+                (233, 79, 53), # Highlighting color
+                pygame.Rect(draw_x - border_thickness, draw_y - border_thickness, 
+                           scaled_w + border_thickness*2, scaled_h + border_thickness*2),
+                border_thickness
+            )
+            
+            # --- Draw red boxes and targets (at correct zoomed scale) ---
+            # Calculate total scale factor relative to level map coordinates
+            map_w = self.level_ref.columns * scaled_tile
+            draw_scale = (self.preview_rect.width * self.hover_scale) / map_w
+            
+            tile_size = int(scaled_tile * draw_scale)
+            
+            # Scale red textures to current zoomed tile size
+            scaled_box_red = pygame.transform.smoothscale(self.box_red_img, (tile_size, tile_size))
+            scaled_target_red = pygame.transform.smoothscale(self.target_red_img, (tile_size, tile_size))
+            
+            for col, row in self.target_positions:
+                tx = int(draw_x + col * scaled_tile * draw_scale)
+                ty = int(draw_y + row * scaled_tile * draw_scale)
+                self.screen.blit(scaled_target_red, (tx, ty))
+                
+            for col, row in self.box_positions:
+                bx = int(draw_x + col * scaled_tile * draw_scale)
+                by = int(draw_y + row * scaled_tile * draw_scale)
+                self.screen.blit(scaled_box_red, (bx, by))
+        # ------------------------------------------------
+
+        # Handle search bar cursor blinking
+        self.cursor_timer += 0.016
+        if self.cursor_timer >= 0.5:
+            self.cursor_visible = not self.cursor_visible
+            self.cursor_timer = 0
 
         font = pygame.font.Font(font_path, 80)
+        
+        # Decide what text to show
+        if self.input_active:
+            display_digits = self.input_text
+            base_text = "LEVEL "
+        else:
+            display_digits = str(self.current_level + 1) if self.current_level != 'test' else ""
+            base_text = "TEST LEVEL" if self.current_level == 'test' else "LEVEL "
 
-        level_name = "TEST LEVEL" if self.current_level == 'test' else f"LEVEL {self.current_level + 1}"
+        # --- Stationary Text Fix ---
+        # Calculate X based on a fixed "LEVEL " part to prevent jumping
+        temp_base = font.render("LEVEL ", False, (0, 0, 0))
+        fixed_center_x = self.preview_rect.centerx
+        # We want the "total" expected text to be roughly centered, 
+        # but the "LEVEL " part's start position should stay stable.
+        # We'll anchor "LEVEL " 50 pixels to the left of center.
+        level_x = fixed_center_x - (temp_base.get_width() // 2) - 30 
+        level_y = 80
 
-        txt = font.render(
-            level_name, False, (0, 255, 127)
-        )
-
-        shadow = font.render(
-            level_name, False, (0, 50, 0)
-        )
-
-        TITLE_Y = 80
-        level_x = self.preview_rect.centerx - txt.get_width() // 2
-        level_y = TITLE_Y
+        # Render background/shadow for the whole string
+        full_string = base_text + display_digits
+        txt = font.render(full_string, False, (0, 255, 127))
+        shadow = font.render(full_string, False, (0, 50, 0))
+        
+        # Define interaction rect (make it slightly bigger for easier clicking)
+        self.title_rect = txt.get_rect(topleft=(level_x, level_y)).inflate(20, 20)
 
         self.screen.blit(shadow, (level_x + 5, level_y + 5))
-
         self.screen.blit(txt, (level_x, level_y))
+
+        # Render Cursor
+        if self.input_active and self.cursor_visible:
+            cursor_surf = font.render("_", False, (0, 255, 127))
+            cursor_x = level_x + txt.get_width() + 5
+            self.screen.blit(cursor_surf, (cursor_x, level_y))
 
         box_font = pygame.font.Font(font_path, 50)
 
@@ -234,3 +360,6 @@ class LevelSelection:
 
         self.manager.update(0.016)
         self.manager.draw_ui(self.screen)
+        
+        # UI Border Padding
+        pygame.draw.rect(self.screen, BORDER_COLOR, (0, 0, window_width, window_height), BORDER_WIDTH)
