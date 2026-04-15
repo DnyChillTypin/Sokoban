@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 Sokoban AI Engine
+# Sokoban AI Engine
 
 **A high-performance, JIT-compiled AI solver suite embedded inside a cooperative-multitasking Pygame engine.**
 
@@ -17,7 +17,7 @@
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 1. [Key Features](#-key-features)
 2. [Technical Architecture](#-technical-architecture)
 3. [Installation & Setup](#-installation--setup)
@@ -26,19 +26,19 @@
 
 ---
 
-## ⚡ Key Features
+## Key Features
 
 This project reconstructs the classic Sokoban puzzle game from the ground up to serve as a high-fidelity AI testbed.
 
-- **🤖 6-Algorithm Solver Suite**: Run A*, Breadth-First Search (BFS), Depth-First Search (DFS), Dijkstra, Best-First Search, and Weighted A* simultaneously.
-- **📊 Live Radar Chart Analytics**: A dynamically animating polar coordinate chart compares solver performance metrics (Time, Nodes Visited, Pushes, Max Memory, etc.) in real-time as results arrive.
-- **🖼️ Premium "Cyber-Glass" UI**: Built with Pygame_GUI, featuring glassmorphism elements, dynamic UI scaling, and responsive pixel-art layouts.
-- **🌐 Dual-Language Localization**: Full English and Vietnamese support that hot-swaps interfaces dynamically at render-time.
-- **📦 Native Standalone Packaging**: Fully bundled via PyInstaller utilizing `sys._MEIPASS` and Git LFS for out-of-the-box Windows execution.
+- **6-Algorithm Solver Suite**: Run A*, Breadth-First Search (BFS), Depth-First Search (DFS), Dijkstra, Best-First Search, and Weighted A* simultaneously.
+- **Live Radar Chart Analytics**: A dynamically animating polar coordinate chart compares solver performance metrics (Time, Nodes Visited, Pushes, Max Memory, etc.) in real-time as results arrive.
+- **Premium "Cyber-Glass" UI**: Built with Pygame_GUI, featuring glassmorphism elements, dynamic UI scaling, and responsive pixel-art layouts.
+- **Dual-Language Localization**: Full English and Vietnamese support that hot-swaps interfaces dynamically at render-time.
+- **Native Standalone Packaging**: Fully bundled via PyInstaller utilizing `sys._MEIPASS` and Git LFS for out-of-the-box Windows execution.
 
 ---
 
-## 🏗️ Technical Architecture
+## Technical Architecture
 
 The engine is engineered around three core principles to conquer the NP-hard Sokoban state-space without dropping a single frame:
 
@@ -53,15 +53,23 @@ Before searching begins, a wall-aware reverse BFS floods the grid, generating a 
 
 ---
 
-## 💻 Installation & Setup
+## Installation & Setup
 
-Want to run the solvers yourself? You can either run the bundled executable or build it from the Python source.
+Want to run the solvers yourself? We provide compiled binaries for immediate play, or you can build it directly from the Python source.
 
-### Prerequisites
+### 🎮 Quick Start (Windows)
+The easiest way to play the game without installing Python or dependencies.
+
+1. Navigate to the **`dist/`** folder in this repository.
+2. Download **`SokobanAI.exe`** (Note: Due to file sizes, this is hosted via Git LFS).
+3. Run the executable. No installation required!
+
+### 💻 Source Build Instructions
+For developers who want to inspect the source code or run it on macOS/Linux.
+
+**Prerequisites:**
 - Python 3.10+ (Tested on 3.14)
-- Git LFS (if cloning assets)
-
-### Source Build Instructions
+- Git LFS (Required to pull the large asset files)
 
 **1. Clone the repository**
 ```bash
@@ -92,7 +100,7 @@ python main.py
 
 ---
 
-## 🕹️ Controls & Gameplay
+## Controls & Gameplay
 
 The game features dynamic input tracking and quality-of-life puzzle shortcuts.
 
