@@ -1,6 +1,10 @@
 import pygame
 import pygame_gui
-from settings import *
+import time
+from settings import window_width, window_height, menu_width, font_path, ALGORITHMS, UI_THEME, textures
+from radar_chart import RadarChart
+from config_utils import load_settings
+from translations import get_text
 from button import Button
 
 class GameMenu:
@@ -24,13 +28,14 @@ class GameMenu:
             'BestFS': (255, 255, 0),   # Hot Magenta
             'Dijkstra': (255, 140, 0)  # Bright Orange
         }
-        self.radar_chart = RadarChart(center=(680, 370), radius=180, font_size=20, color_map=color_map)
+        self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
         
         # Load assets using settings.py
         self.custom_font = pygame.font.Font(font_path, 24)
         self.coffee_icon = pygame.image.load(textures['coffee_icon']).convert_alpha()
         
         self.current_move_text = "MOVES: 0"
+        self.moves_count = 0
         
         # Screen dimming overlay
         self.dim_surf = pygame.Surface((window_width, window_height))
@@ -226,7 +231,7 @@ class GameMenu:
             for res_btn in self.result_btns.values(): res_btn.hide()
 
     def update_moves(self, count, level_num):
-        self.current_move_text = f"MOVES: {count}"
+        self.moves_count = count
 
     def reset_ai_menu(self):
         self.algo_results = {algo: None for algo in ALGORITHMS}
@@ -429,10 +434,14 @@ class GameMenu:
             if btn.held and btn.is_enabled: rect.y += 5
             surface.blit(surf, rect)
 
-        draw_text(self.current_move_text, self.move_display)
+        settings = load_settings()
+        lang = settings.get("language", "en")
+
+        move_label = get_text(lang, 'moves')
+        draw_text(f"{move_label}: {self.moves_count}", self.move_display)
         
         # AI Solver Button Text
-        draw_text("AI SOLVER", self.ai_toggle_btn, (71, 45, 60))
+        draw_text(get_text(lang, 'ai_solver'), self.ai_toggle_btn, (71, 45, 60))
 
         # Hint Button / Coffee Icon
         if self.hint_btn.visible:
@@ -441,12 +450,12 @@ class GameMenu:
                 self.coffee_icon.set_alpha(255)
                 surface.blit(self.coffee_icon, icon_rect)
             else:
-                draw_text("HINT", self.hint_btn, (71, 45, 60))
+                draw_text(get_text(lang, 'hint'), self.hint_btn, (71, 45, 60))
                 
         if self.undo_btn.visible:
-            draw_text("UNDO", self.undo_btn, (71, 45, 60))
+            draw_text(get_text(lang, 'undo'), self.undo_btn, (71, 45, 60))
         if self.reset_btn.visible:
-            draw_text("RESET", self.reset_btn, (71, 45, 60))
+            draw_text(get_text(lang, 'reset'), self.reset_btn, (71, 45, 60))
         
         # Dropdown Items
         if self.ai_dropdown_open:

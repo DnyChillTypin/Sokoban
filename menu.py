@@ -5,12 +5,18 @@ import random
 from settings import *
 from settings import window_width, window_height
 import os
+from config_utils import save_settings, load_settings
+from translations import get_text
 
 class SokobanMenu:
     def __init__(self, screen):
         self.window = screen
         self.manager = pygame_gui.UIManager((window_width, window_height), UI_THEME)
         self.state = "MAIN"
+        
+        # --- NEW: Configuration State ---
+        self.settings = load_settings()
+        self.lang = self.settings.get("language", "en")
         
         self.TITLE_MAIN = (249, 194, 43) # #f9c22b
         self.TITLE_YELLOW = (255, 255, 0)
@@ -22,12 +28,18 @@ class SokobanMenu:
         self.dark_overlay.set_alpha(150)
         
         pygame.mixer.init()
+        self.music_channel = None 
         try:
             self.music = pygame.mixer.Sound('assets/Music.mp3')
             self.sfx = pygame.mixer.Sound('assets/SoundEffect.wav')
             self.music_channel = self.music.play(-1)
-            self.is_music_on = True
-            self.is_sfx_on = True
+            
+            # Match settings
+            self.is_music_on = self.settings.get("music", "On") == "On"
+            self.is_sfx_on = self.settings.get("sound", "On") == "On"
+            
+            if not self.is_music_on and self.music_channel: 
+                self.music_channel.pause()
         except:
             self.is_music_on = self.is_sfx_on = False
 
@@ -107,19 +119,26 @@ class SokobanMenu:
 
 
         elif self.state == "OPTIONS":
-            # Đẩy các option lên cao hơn
-            self.music_btn = self._create_btn(cx, 280, btn_w, btn_h, 
-                                            f"MUSIC: {'ON' if self.is_music_on else 'OFF'}", "#ai_btn")
-            self.sfx_btn = self._create_btn(cx, 385, btn_w, btn_h, 
-                                           f"SOUND FX: {'ON' if self.is_sfx_on else 'OFF'}", "#ai_btn")
+            # 2-Column Layout
+            col1_x = cx - 180
+            col2_x = cx + 180
             
-            # Side-by-side Resolution Buttons
-            small_btn_w = (btn_w - 20) // 2
-            self.res_1600_btn = self._create_btn(cx, 500, small_btn_w, btn_h, "1600x900", "#ai_btn")
-            self.res_full_btn = self._create_btn(cx + small_btn_w + 20, 500, small_btn_w, btn_h, "FULLSCREEN", "#ai_btn")
+            # Left Column: Audio & Language settings
+            self.music_btn = self._create_btn(col1_x, 300, btn_w, btn_h, 
+                                            f"{get_text(self.lang, 'music')}: {'ON' if self.is_music_on else 'OFF'}", "#ai_btn")
+            self.sfx_btn = self._create_btn(col1_x, 430, btn_w, btn_h, 
+                                           f"{get_text(self.lang, 'sound_fx')}: {'ON' if self.is_sfx_on else 'OFF'}", "#ai_btn")
             
-            # QUAN TRỌNG: Nút BACK luôn cách cạnh dưới 120 pixel
-            self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, "BACK", "#algo_btn")
+            # LANGUAGE Toggle (vi/en)
+            self.lang_btn = self._create_btn(col1_x, 560, btn_w, btn_h, 
+                                            f"{get_text(self.lang, 'language')}: {self.lang.upper()}", "#ai_btn")
+            
+            # Right Column: Visual settings
+            self.res_1600_btn = self._create_btn(col2_x, 300, btn_w, btn_h, get_text(self.lang, 'windowed'), "#ai_btn")
+            self.res_full_btn = self._create_btn(col2_x, 430, btn_w, btn_h, get_text(self.lang, 'fullscreen'), "#ai_btn")
+            
+            # Center: Back button
+            self.back_btn = self._create_btn(cx, curr_h - 120, btn_w, btn_h, get_text(self.lang, 'back'), "#algo_btn")
 
     def _create_btn(self, x, y, w, h, text, obj_id):
         return pygame_gui.elements.UIButton(
@@ -133,15 +152,28 @@ class SokobanMenu:
         keep pixel fonts crisp and tear-free when GPU-scaled to fullscreen.
         """
         if resolution_str == "Fullscreen":
-            # Force nearest-neighbor scaling BEFORE creating fullscreen mode
-            # so pixel art and text scale with hard edges, not blurry bilinear
+            self.settings["resolution"] = "Fullscreen"
+            self.settings["mode"] = "Fullscreen"
             os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
             pygame.display.set_mode((window_width, window_height), pygame.FULLSCREEN | pygame.SCALED)
         else:
+            self.settings["resolution"] = "1600x900"
+            self.settings["mode"] = "Windowed"
             os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
             pygame.display.set_mode((window_width, window_height))
+        
+        save_settings(self.settings)
 
     def handle_events(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                if self.state == "OPTIONS":
+                    return "EXIT_SETTINGS"
+                elif self.state != "MAIN":
+                    self.state = "MAIN"
+                    self.setup_ui()
+                    return "HANDLED"
+
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if self.is_sfx_on: self.sfx.play()
             ui = event.ui_element
@@ -151,16 +183,29 @@ class SokobanMenu:
                 if ui == self.setting_btn: self.state = "OPTIONS"; self.setup_ui()
                 if ui == self.quit_btn: return "QUIT"
             elif ui == getattr(self, 'back_btn', None):
+                if self.state == "OPTIONS":
+                    return "EXIT_SETTINGS"
                 self.state = "MAIN"; self.setup_ui()
             elif self.state == "OPTIONS":
                 if ui == self.music_btn:
                     self.is_music_on = not self.is_music_on
-                    if self.is_music_on: self.music_channel.unpause()
-                    else: self.music_channel.pause()
+                    self.settings["music"] = "On" if self.is_music_on else "Off"
+                    if self.music_channel:
+                        if self.is_music_on: self.music_channel.unpause()
+                        else: self.music_channel.pause()
+                    save_settings(self.settings)
                     self.setup_ui()
                 if ui == self.sfx_btn:
                     self.is_sfx_on = not self.is_sfx_on
+                    self.settings["sound"] = "On" if self.is_sfx_on else "Off"
+                    save_settings(self.settings)
                     self.setup_ui()
+                if ui == getattr(self, 'lang_btn', None):
+                    self.lang = "vi" if self.lang == "en" else "en"
+                    self.settings["language"] = self.lang
+                    save_settings(self.settings)
+                    self.setup_ui()
+                
                 if ui == getattr(self, 'res_1600_btn', None):
                     self.change_resolution("1600x900")
                 if ui == getattr(self, 'res_full_btn', None):

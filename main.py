@@ -4,6 +4,9 @@ import os
 import time
 import pygame_gui
 import random
+import json
+import math
+from config_utils import load_settings, save_settings
 
 # Force nearest-neighbor (pixel-perfect) scaling globally.
 # Without this, SDL uses bilinear filtering when FULLSCREEN|SCALED upscales
@@ -18,12 +21,27 @@ from menu import SokobanMenu
 from selectLevels import LevelSelection
 from solver import SokobanSolver
 from particles import ParticleManager
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# --- PYINSTALLER PATHING FIX ---
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    os.chdir(sys._MEIPASS)
+else:
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((window_width, window_height))
+        
+        # --- Persistent Settings ---
+        self.settings = load_settings()
+        res_str = self.settings.get("resolution", "1600x900")
+        mode_str = self.settings.get("mode", "Windowed")
+        
+        if mode_str == "Fullscreen":
+            os.environ['SDL_RENDER_SCALE_QUALITY'] = '0'
+            self.screen = pygame.display.set_mode((window_width, window_height), pygame.FULLSCREEN | pygame.SCALED)
+        else:
+            self.screen = pygame.display.set_mode((window_width, window_height))
+
         pygame.display.set_caption('Sokoban AI')
         
         self.bg_image = pygame.image.load(textures['bg_image_path']).convert_alpha()
@@ -37,6 +55,8 @@ class Game:
         self.level_selector = LevelSelection(self.screen, self.manager)
         
         self.game_state = "MAIN_MENU"
+        self.state_before_settings = None # Track where we came from
+        self.tutorial_hints_visible = True # Animated WASD hints
 
         self.menu = GameMenu()
         
@@ -109,6 +129,10 @@ class Game:
         self.level_complete_waiting = False
         self.menu.reset_ai_menu() 
         self.menu.update_moves(self.moves_count, self.current_level_num)
+        
+        # Reset tutorial hints on level load/restart
+        self.tutorial_hints_visible = True
+        self.tutorial_push_hint_visible = True
 
     def _reset_hint_state(self):
         self.dead_state_active = False
@@ -138,6 +162,7 @@ class Game:
             pushed_box_pos = self.player.move(dx, dy, self.level)
             
             if self.player.x != old_x or self.player.y != old_y:
+                self.tutorial_hints_visible = False # Hide tutorial hints as soon as player moves
                 self.history.append({'player': (old_x, old_y), 'boxes': old_boxes})
                 self.moves_count += 1
                 self.menu.update_moves(self.moves_count, self.current_level_num)
@@ -152,6 +177,12 @@ class Game:
                         pixel_x = bx * scaled_tile + (scaled_tile // 2) + self.map_rect.x
                         pixel_y = by * scaled_tile + (scaled_tile // 2) + self.map_rect.y
                         self.particle_manager.burst(pixel_x, pixel_y, count=30)
+                    
+                # Tutorial: Mark push hint as done if box moved off (2,2)
+                was_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in old_boxes)
+                is_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in self.level.boxes)
+                if was_box_at_2_2 and not is_box_at_2_2:
+                    self.tutorial_push_hint_visible = False
             else:
                 # Shake ONLY if player attempted to move but state stayed the same (hit a wall/blocked)
                 self.shake(0.2, 5.0)
@@ -249,11 +280,19 @@ class Game:
                     if event.type == pygame.QUIT: self.game_state = "QUIT_PROMPT"
                     elif event.type == pygame.KEYDOWN:
                         if (event.key == pygame.K_q) and (event.mod & pygame.KMOD_SHIFT): self.quit_game()
-                        elif event.key == pygame.K_ESCAPE: self.game_state = "QUIT_PROMPT"
+                        elif event.key == pygame.K_ESCAPE:
+                            if self.start_menu.state == "MAIN":
+                                self.game_state = "QUIT_PROMPT"
                         
                     menu_action = self.start_menu.handle_events(event)
                     
-                    if menu_action == "START_GAME":
+                    if menu_action == "EXIT_SETTINGS":
+                        if self.state_before_settings:
+                            self.game_state = self.state_before_settings
+                            self.state_before_settings = None
+                        self.start_menu.state = "MAIN"
+                        self.start_menu.setup_ui()
+                    elif menu_action == "START_GAME":
                         self.game_state = "LEVEL_SELECT"
                     elif menu_action == "START_TUTORIAL":
                         self.current_level_num = "tutorial"
@@ -280,6 +319,7 @@ class Game:
                     elif action == "HOME":
                         self.game_state = "MAIN_MENU"
                     elif action == "SETTINGS":
+                        self.state_before_settings = "LEVEL_SELECT"
                         self.start_menu.state = "OPTIONS"
                         self.start_menu.setup_ui()
                         self.game_state = "MAIN_MENU"
@@ -308,6 +348,108 @@ class Game:
 
                 self.draw_quit_prompt()
                 pygame.display.update()
+
+    def _draw_tutorial_hints(self):
+        import math
+        curr_time = pygame.time.get_ticks() / 1000.0
+        
+        # 1. State: Cycle between WASD and Arrows (Period: 3 seconds)
+        # 0.0-1.5: Set A, 1.5-3.0: Set B
+        cycle = (curr_time % 3.0) 
+        alpha_val = 255
+        show_wasd = True
+        
+        if 1.2 <= cycle < 1.5: # Fade Out A
+            alpha_val = int(255 * (1.0 - (cycle - 1.2) / 0.3))
+        elif 1.5 <= cycle < 1.8: # Fade In B
+            alpha_val = int(255 * ((cycle - 1.5) / 0.3))
+            show_wasd = False
+        elif 1.8 <= cycle < 2.7: # Fully B
+            show_wasd = False
+        elif 2.7 <= cycle < 3.0: # Fade Out B
+            alpha_val = int(255 * (1.0 - (cycle - 2.7) / 0.3))
+            show_wasd = False
+        
+        # 2. Appearance Params
+        # Calculate pixel center of the player's current grid cell
+        center_x = self.player.x * scaled_tile + (scaled_tile // 2) + self.map_rect.x
+        center_y = self.player.y * scaled_tile + (scaled_tile // 2) + self.map_rect.y
+        box_size = 64
+        spacing = scaled_tile # Exactly one tile away
+        
+        # Definitions: [Label_WASD, Label_Arrows, offset_x, offset_y]
+        keys = [
+            ["W", "^", 0, -spacing],
+            ["A", "<", -spacing, 0],
+            ["S", "v", 0, spacing],
+            ["D", ">", spacing, 0]
+        ]
+        
+        YELLOW = (249, 194, 43)
+        BORDER_YELLOW = (249, 194, 43, 180)
+        BG_COLOR = (20, 20, 25, 160)
+        
+        for kw, ka, dx, dy in keys:
+            bx = center_x + dx - (box_size // 2)
+            by = center_y + dy - (box_size // 2)
+            
+            # Draw Box
+            box_surf = pygame.Surface((box_size, box_size), pygame.SRCALPHA)
+            pygame.draw.rect(box_surf, BG_COLOR, (0, 0, box_size, box_size), border_radius=12)
+            pygame.draw.rect(box_surf, BORDER_YELLOW, (0, 0, box_size, box_size), width=3, border_radius=12)
+            
+            # Draw Label
+            label_text = kw if show_wasd else ka
+            txt_surf = self.font_small.render(label_text, False, YELLOW)
+            txt_surf.set_alpha(alpha_val)
+            t_rect = txt_surf.get_rect(center=(box_size // 2, box_size // 2))
+            box_surf.blit(txt_surf, t_rect)
+            
+            self.screen.blit(box_surf, (bx, by))
+
+    def _draw_push_hint(self):
+        curr_time = pygame.time.get_ticks() / 1000.0
+        box_size = 64
+        YELLOW = (249, 194, 43)
+        BORDER_YELLOW = (249, 194, 43, 180)
+        BG_COLOR = (20, 20, 25, 160)
+        
+        # Ping-pong or repeated interpolation? "move across from (2,1) to (4,1) and disappear, appear again"
+        # Total cycle time 2.0 seconds
+        push_cycle = (curr_time / 2.0) % 1.0 
+        
+        # X animates from grid 2.0 to 4.0
+        anim_x = 2.0 + (push_cycle * 2.0)
+        anim_y = 1.0
+        
+        # Convert to screen pixels
+        ax = anim_x * scaled_tile + (scaled_tile // 2) + self.map_rect.x
+        ay = anim_y * scaled_tile + (scaled_tile // 2) + self.map_rect.y
+        
+        # Calculate fade
+        push_alpha = 255
+        # Fade in roughly over first 10% of cycle
+        if push_cycle < 0.1:
+            push_alpha = int(255 * (push_cycle / 0.1))
+        # Fade out roughly over last 10% of cycle
+        elif push_cycle > 0.9:
+            push_alpha = int(255 * (1.0 - (push_cycle - 0.9) / 0.1))
+            
+        bx = ax - (box_size // 2)
+        by = ay - (box_size // 2)
+        
+        push_surf = pygame.Surface((box_size, box_size), pygame.SRCALPHA)
+        pygame.draw.rect(push_surf, BG_COLOR, (0, 0, box_size, box_size), border_radius=12)
+        pygame.draw.rect(push_surf, BORDER_YELLOW, (0, 0, box_size, box_size), width=3, border_radius=12)
+        
+        arr_surf = self.font_small.render("v", False, YELLOW)
+        arr_surf.set_alpha(push_alpha)
+        p_rect = arr_surf.get_rect(center=(box_size // 2, box_size // 2))
+        push_surf.blit(arr_surf, p_rect)
+        
+        # Apply composite alpha to surface directly because we have semi-trans borders
+        push_surf.set_alpha(push_alpha)
+        self.screen.blit(push_surf, (bx, by))
 
     def draw_quit_prompt(self):
         self.start_menu.draw(0)
@@ -354,8 +496,12 @@ class Game:
                     if event.key == pygame.K_SPACE:
                         if self.current_level_num == 'test':
                             self.current_level_num = 0
+                        elif self.current_level_num == 'tutorial':
+                            self.game_state = "MAIN_MENU"
+                            self.level_complete_waiting = False
+                            continue
                         elif isinstance(self.current_level_num, str):
-                            # Default back to level 0 if we were in tutorial or other custom string level
+                            # Default back to level 0 if we were in other custom string level
                             self.current_level_num = 0
                         else:
                             self.current_level_num += 1
@@ -386,6 +532,7 @@ class Game:
             elif action == "HOME_CLICKED":
                 self.game_state = "LEVEL_SELECT"
             elif action == "SETTINGS_CLICKED":
+                self.state_before_settings = "GAMEPLAY"
                 self.start_menu.state = "OPTIONS"
                 self.start_menu.setup_ui()
                 self.game_state = "MAIN_MENU"
@@ -514,6 +661,18 @@ class Game:
         shaken_rect.y += int(self.shake_offset[1])
         
         self.screen.blit(self.map_surface, shaken_rect)
+        
+        # --- NEW: Tutorial Hints ---
+        if self.current_level_num == "tutorial":
+            if getattr(self, 'tutorial_hints_visible', False):
+                self._draw_tutorial_hints()
+                
+            # Second part of the tutorial: Push hint (disappears natively if the specific box is moved)
+            if getattr(self, 'tutorial_push_hint_visible', False):
+                has_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in self.level.boxes)
+                if has_box_at_2_2:
+                    self._draw_push_hint()
+            
         self.particle_manager.draw(self.screen)
         self.menu.draw(self.screen)
         

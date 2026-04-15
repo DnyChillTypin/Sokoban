@@ -1,6 +1,8 @@
 import pygame
 import math
 from settings import font_path, window_width, window_height
+from config_utils import load_settings
+from translations import get_text
 
 class RadarChart:
     def __init__(self, center, radius, font_size, color_map):
@@ -21,13 +23,23 @@ class RadarChart:
         self.legend_hitboxes = []
         self.axis_hitboxes = [] # (metric_name, label_rect)
         
-        self.axis_descriptions = {
-            'Time': 'Solve time in seconds.',
-            'Nodes': 'Total visited search states.',
-            'Moves': 'Total steps in solution path.',
-            'Pushes': 'Total number of box movements.',
-            'Fringe': 'Peak memory (states in queue).',
-            'Pruned': 'Deadlock states skipped.'
+        self.axis_description_keys = {
+            'Time': 'desc_time',
+            'Nodes': 'desc_nodes',
+            'Moves': 'desc_moves',
+            'Pushes': 'desc_pushes',
+            'Fringe': 'desc_fringe',
+            'Pruned': 'desc_pruned'
+        }
+        
+        # Internal mapping for localized metric labels
+        self.metric_label_keys = {
+            'Time': 'metric_time',
+            'Nodes': 'metric_nodes',
+            'Moves': 'metric_moves',
+            'Pushes': 'metric_pushes',
+            'Fringe': 'metric_fringe',
+            'Pruned': 'metric_pruned'
         }
         
         # Animation Queue System
@@ -126,14 +138,17 @@ class RadarChart:
         if pushes_val == "FAIL" or not path:
             pushes_val = "FAIL"
 
+        settings = load_settings()
+        lang = settings.get("language", "en")
+
         tooltip_lines = [
-            f"Time (s): {metrics.get('time', 0):.4f}",
-            f"Visited: {metrics.get('visited', 0)}",
-            f"Generated: {metrics.get('generated', 0)}",
-            f"Max Mem: {metrics.get('max_fringe', 0)}",
-            f"Pruned: {metrics.get('pruned', 0)}",
-            f"Pushes: {pushes_val}",
-            f"Moves: {moves_val}",
+            f"{get_text(lang, 'metric_time')} (s): {metrics.get('time', 0):.4f}",
+            f"{get_text(lang, 'visited')}: {metrics.get('visited', 0)}",
+            f"{get_text(lang, 'generated')}: {metrics.get('generated', 0)}",
+            f"{get_text(lang, 'max_mem')}: {metrics.get('max_fringe', 0)}",
+            f"{get_text(lang, 'metric_pruned')}: {metrics.get('pruned', 0)}",
+            f"{get_text(lang, 'metric_pushes')}: {pushes_val}",
+            f"{get_text(lang, 'metric_moves')}: {moves_val}",
         ]
 
         # Render text surfaces
@@ -177,7 +192,11 @@ class RadarChart:
 
     def _draw_axis_tooltip(self, surface, metric_name, mouse_pos):
         """Draw a short description note box for the axis metric."""
-        desc = self.axis_descriptions.get(metric_name, "")
+        settings = load_settings()
+        lang = settings.get("language", "en")
+        
+        desc_key = self.axis_description_keys.get(metric_name)
+        desc = get_text(lang, desc_key) if desc_key else ""
         if not desc:
             return
 
@@ -238,17 +257,23 @@ class RadarChart:
             pygame.draw.polygon(surface, (140, 140, 140), points, 2)
 
         # 3. Draw spokes and labels
+        settings = load_settings()
+        lang = settings.get("language", "en")
+
         for i, angle in enumerate(self.angles):
             px = cx + self.radius * math.cos(angle)
             py = cy + self.radius * math.sin(angle)
             pygame.draw.line(surface, (140, 140, 140), (cx, cy), (px, py), 2)
-            label_text = self.metrics[i]
+            
+            raw_metric = self.metrics[i]
+            label_text = get_text(lang, self.metric_label_keys.get(raw_metric, raw_metric))
+            
             lx = cx + (self.radius + 35) * math.cos(angle)
             ly = cy + (self.radius + 35) * math.sin(angle)
             txt_surf = self.font.render(label_text, False, (248, 244, 239)) # Cream color
             rect = txt_surf.get_rect(center=(lx, ly))
             surface.blit(txt_surf, rect)
-            self.axis_hitboxes.append((label_text, rect))
+            self.axis_hitboxes.append((raw_metric, rect))
 
         # 4. Collection for rendering
         surf_w = int(self.radius * 3)

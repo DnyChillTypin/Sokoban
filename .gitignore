@@ -13,3 +13,8 @@ tempCodeRunnerFile.py
 *.log
 
 .env
+
+dist/
+build/
+*.exe
+*.pkg

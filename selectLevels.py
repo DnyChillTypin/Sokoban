@@ -3,6 +3,8 @@ import pygame_gui
 import os
 from level import Level
 from settings import *
+from config_utils import load_settings
+from translations import get_text
 
 
 class LevelSelection:
@@ -179,7 +181,9 @@ class LevelSelection:
 
     def shift_focus(self, offset):
         old_idx = self.current_level_idx
-        self.current_level_idx = max(0, min(len(self.available_levels) - 1, self.current_level_idx + offset))
+        # Wrapping logic: Jump from end to start and vice versa
+        self.current_level_idx = (self.current_level_idx + offset) % len(self.available_levels)
+        
         if old_idx != self.current_level_idx:
             self._load_level_preview()
 
@@ -307,17 +311,21 @@ class LevelSelection:
 
         font = pygame.font.Font(font_path, 80)
         
+        # Get current language
+        settings = load_settings()
+        lang = settings.get("language", "en")
+
         # Decide what text to show
         if self.input_active:
             display_digits = self.input_text
-            base_text = "LEVEL "
+            base_text = get_text(lang, 'level')
         else:
             display_digits = str(self.current_level + 1) if self.current_level != 'test' else ""
-            base_text = "TEST LEVEL" if self.current_level == 'test' else "LEVEL "
+            base_text = "TEST LEVEL" if self.current_level == 'test' else get_text(lang, 'level')
 
         # --- Stationary Text Fix ---
         # Calculate X based on a fixed "LEVEL " part to prevent jumping
-        temp_base = font.render("LEVEL ", False, (0, 0, 0))
+        temp_base = font.render(get_text(lang, 'level'), False, (0, 0, 0))
         fixed_center_x = self.preview_rect.centerx
         # We want the "total" expected text to be roughly centered, 
         # but the "LEVEL " part's start position should stay stable.
@@ -327,7 +335,7 @@ class LevelSelection:
 
         # Render background/shadow for the whole string
         full_string = base_text + display_digits
-        txt = font.render(full_string, False, (0, 255, 127))
+        txt = font.render(full_string, False, (249, 194, 43))
         shadow = font.render(full_string, False, (0, 50, 0))
         
         # Define interaction rect (make it slightly bigger for easier clicking)
@@ -338,17 +346,19 @@ class LevelSelection:
 
         # Render Cursor
         if self.input_active and self.cursor_visible:
-            cursor_surf = font.render("_", False, (0, 255, 127))
+            cursor_surf = font.render("_", False, (249, 194, 43))
             cursor_x = level_x + txt.get_width() + 5
             self.screen.blit(cursor_surf, (cursor_x, level_y))
 
         box_font = pygame.font.Font(font_path, 50)
+        box_label = get_text(lang, 'boxes')
+        box_display = f"{box_label}: {self.box_count}"
 
         box_text = box_font.render(
-            f"Boxes: {self.box_count}", False, (0, 255, 127)
+            box_display, False, (249, 194, 43)
         )
         shadow = box_font.render(
-            f"Boxes: {self.box_count}", False, (0, 50, 0)
+            box_display, False, (0, 50, 0)
         )
 
         BOX_Y = 800
