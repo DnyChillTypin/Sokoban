@@ -38,6 +38,7 @@ textures = {
     'box': 'assets/graphics/interactables/BoxYallow.png',
     'box_on_target': 'assets/graphics/interactables/BoxGreen.png', 
     'target': 'assets/graphics/interactables/ButtonUpYallow.png',
+    'red_target': 'assets/graphics/interactables/ButtonUpRed.png',
     
     # Hint & Dead State
     'red_box': 'assets/graphics/interactables/BoxRed.png',
@@ -52,6 +53,8 @@ textures = {
     'Bomb_explode_1': 'assets/graphics/items/Explode1.png',
     'Bomb_explode_2': 'assets/graphics/items/Explode2.png',
     'Bomb_explode_3': 'assets/graphics/items/Explode3.png',
+    'FlowerBlue':'assets/graphics/props/FlowerBlue.png',
+    'FlowerWhite':'assets/graphics/props/FlowerWhite.png',
     
     # UI & Menus
     'menu_dark': 'assets/graphics/Buttons/MenuFloorDark5x.png',

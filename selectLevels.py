@@ -31,7 +31,7 @@ class LevelSelection:
         self.hover_scale = 1.0
 
         self.box_red_img = pygame.image.load(
-            "assets/graphics/interactables/BoxRed.png"
+            textures['red_box']
         ).convert_alpha()
 
         self.box_red_img = pygame.transform.scale(
@@ -39,7 +39,7 @@ class LevelSelection:
         )
 
         self.target_red_img = pygame.image.load(
-            "assets/graphics/interactables/ButtonUpRed.png"
+            textures['red_target']
         ).convert_alpha()
 
         self.target_red_img = pygame.transform.scale(
