@@ -153,8 +153,8 @@ class Game:
         solver = SokobanSolver(self.level)
         current_state = solver.get_initial_state(self.player, self.level)
         
-        # Hyper-fast Weighted A* exclusively for hints
-        result = solver.solve_fast_hint(current_state, weight=5.0, timeout=2.0)
+        # Two-phase hint solver (Greedy BestFS → A* fallback)
+        result = solver.solve_fast_hint(current_state)
 
         if result['path']:
             self.dead_state_active = False
@@ -171,6 +171,7 @@ class Game:
                     self.hint_box_pos = (px, py)
                     self.hint_timer = 2.0 
                     break
+            print(f"Hint found! ({len(result['path'])} moves, {result['time']:.2f}s)")
         else:
             print("Hint Unavailable!")
             self.dead_state_active = True 
@@ -261,6 +262,10 @@ class Game:
                         self.load_current_level()
                         self.game_state = "GAMEPLAY"
                     elif action == "HOME":
+                        self.game_state = "MAIN_MENU"
+                    elif action == "SETTINGS":
+                        self.start_menu.state = "OPTIONS"
+                        self.start_menu.setup_ui()
                         self.game_state = "MAIN_MENU"
                 
                 self.manager.update(time_delta)
@@ -359,6 +364,12 @@ class Game:
                     self.menu.reset_ai_menu() # Invalidate results on UI undo
             elif action == "RESET_CLICKED": 
                 self.load_current_level()
+            elif action == "HOME_CLICKED":
+                self.game_state = "LEVEL_SELECT"
+            elif action == "SETTINGS_CLICKED":
+                self.start_menu.state = "OPTIONS"
+                self.start_menu.setup_ui()
+                self.game_state = "MAIN_MENU"
 
             if action and action.startswith("PLAYBACK_"):
                 algo = action.split("_")[1]

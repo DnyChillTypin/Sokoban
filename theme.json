@@ -17,10 +17,10 @@
       "regular_path": "assets/BoldPixels.ttf"
     },
     "colours": {
-      "normal_text": "#000000",
-      "hovered_text": "#333333",
-      "active_text": "#000000",
-      "selected_text": "#000000",
+      "normal_text": "#472d3c",
+      "hovered_text": "#472d3c",
+      "active_text": "#472d3c",
+      "selected_text": "#472d3c",
       "normal_bg": "#00000000",
       "hovered_bg": "#00000000",
       "active_bg": "#00000000",
@@ -157,10 +157,10 @@
       "regular_path": "assets/BoldPixels.ttf"
     },
     "colours": {
-      "normal_text": "#000000",
-      "hovered_text": "#333333",
-      "active_text": "#000000",
-      "selected_text": "#000000"
+      "normal_text": "#472d3c",
+      "hovered_text": "#472d3c",
+      "active_text": "#472d3c",
+      "selected_text": "#472d3c"
     },
     "images": {
       "normal_image": { "path": "assets/graphics/Buttons/LongWhiteBtnUp8x.png" },
@@ -188,6 +188,76 @@
       "active_image": { "path": "assets/graphics/Buttons/LongRedBtnDown8x.png" },
       "selected_image": { "path": "assets/graphics/Buttons/LongRedBtnDown8x.png" },
       "selected_hovered_image": { "path": "assets/graphics/Buttons/LongRedBtnDown8x.png" }
+    }
+  },
+  "#menu_play": {
+    "font": { "name": "boldpixels", "size": "40", "regular_path": "assets/BoldPixels.ttf" },
+    "colours": { "normal_text": "#FFFFFF", "hovered_text": "#DDDDDD", "active_text": "#FFFFFF", "selected_text": "#FFFFFF" },
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/LongRedPlayBtnUp7x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/LongRedPlayBtnUp7x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/LongRedPlayBtnDown7x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/LongRedPlayBtnDown7x.png" }
+    }
+  },
+  "#menu_instr": {
+    "font": { "name": "boldpixels", "size": "40", "regular_path": "assets/BoldPixels.ttf" },
+    "colours": { "normal_text": "#472d3c", "hovered_text": "#472d3c", "active_text": "#472d3c", "selected_text": "#472d3c" },
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/LongWhiteInstructionBtnUp7x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/LongWhiteInstructionBtnUp7x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/LongWhiteInstructionBtnDown7x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/LongWhiteInstructionBtnDown7x.png" }
+    }
+  },
+  "#menu_settings": {
+    "font": { "name": "boldpixels", "size": "40", "regular_path": "assets/BoldPixels.ttf" },
+    "colours": { "normal_text": "#472d3c", "hovered_text": "#472d3c", "active_text": "#472d3c", "selected_text": "#472d3c" },
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/LongWhiteSettingsBtnUp7x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/LongWhiteSettingsBtnUp7x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/LongWhiteSettingsBtnDown7x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/LongWhiteSettingsBtnDown7x.png" }
+    }
+  },
+  "#menu_quit": {
+    "font": { "name": "boldpixels", "size": "40", "regular_path": "assets/BoldPixels.ttf" },
+    "colours": { "normal_text": "#472d3c", "hovered_text": "#472d3c", "active_text": "#472d3c", "selected_text": "#472d3c" },
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/LongWhiteQuitBtnUp7x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/LongWhiteQuitBtnUp7x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/LongWhiteQuitBtnDown7x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/LongWhiteQuitBtnDown7x.png" }
+    }
+  },
+  "#tray_home": {
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeBtnUp5x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeBtnUp5x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeBtnDown5x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeBtnDown5x.png" }
+    }
+  },
+  "#tray_settings": {
+    "images": {
+      "normal_image": { "path": "assets/graphics/Buttons/InGameMenu/SettingsBtnUp5x.png" },
+      "hovered_image": { "path": "assets/graphics/Buttons/InGameMenu/SettingsBtnUp5x.png" },
+      "active_image": { "path": "assets/graphics/Buttons/InGameMenu/SettingsBtnDown5x.png" },
+      "selected_image": { "path": "assets/graphics/Buttons/InGameMenu/SettingsBtnDown5x.png" }
+    }
+  },
+  "#tray_bg": {
+    "images": {
+      "background_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeSettingsTray5x.png" },
+      "filled_image": { "path": "assets/graphics/Buttons/InGameMenu/HomeSettingsTray5x.png" }
+    },
+    "colours": {
+      "normal_bg": "#00000000",
+      "normal_border": "#00000000"
+    },
+    "misc": {
+      "border_width": "0",
+      "shadow_width": "0"
     }
   }
 }

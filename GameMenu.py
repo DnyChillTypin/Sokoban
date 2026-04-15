@@ -111,6 +111,36 @@ class GameMenu:
         tgl_w, tgl_h = 80, 240
         self.toggle_btn = self._create_btn(menu_width - (tgl_w // 2), (window_height // 2) - (tgl_h // 2), tgl_w, tgl_h, '#toggle_btn')
 
+        # Home / Settings Tray
+        tray_w, tray_h = 280, 100
+        tray_x, tray_y = 10, window_height - tray_h - 10
+        self.tray_panel = pygame_gui.elements.UIPanel(
+            relative_rect=pygame.Rect(tray_x, tray_y, tray_w, tray_h),
+            starting_height=2,
+            manager=self.manager,
+            container=self.panel,
+            object_id="#tray_bg"
+        )
+        
+        # Tray Background Image
+        pygame_gui.elements.UIImage(
+            relative_rect=pygame.Rect(0, 0, tray_w, tray_h),
+            image_surface=pygame.image.load("assets/graphics/Buttons/InGameMenu/HomeSettingsTray5x.png").convert_alpha(),
+            manager=self.manager,
+            container=self.tray_panel
+        )
+        
+        self.home_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(40, 10, 80, 80),
+            text="", manager=self.manager, container=self.tray_panel,
+            object_id="#tray_home"
+        )
+        self.settings_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(160, 10, 80, 80),
+            text="", manager=self.manager, container=self.tray_panel,
+            object_id="#tray_settings"
+        )
+
     # Helper method to keep setup_ui clean
     def _create_btn(self, x, y, w, h, obj_id, visible=True):
         return pygame_gui.elements.UIButton(
@@ -255,6 +285,12 @@ class GameMenu:
                     self.hint_btn.disable() 
                     return f"PLAYBACK_{clicked_algo}"
                 
+            elif ui == self.home_btn:
+                return "HOME_CLICKED"
+                
+            elif ui == self.settings_btn:
+                return "SETTINGS_CLICKED"
+                
             elif ui == self.ai_toggle_btn:
                 if not self.expanded: self.toggle_expansion()
                 self.toggle_ai_dropdown()
@@ -396,7 +432,7 @@ class GameMenu:
         draw_text(self.current_move_text, self.move_display)
         
         # AI Solver Button Text
-        draw_text("AI SOLVER", self.ai_toggle_btn, (0, 0, 0))
+        draw_text("AI SOLVER", self.ai_toggle_btn, (71, 45, 60))
 
         # Hint Button / Coffee Icon
         if self.hint_btn.visible:
@@ -405,12 +441,12 @@ class GameMenu:
                 self.coffee_icon.set_alpha(255)
                 surface.blit(self.coffee_icon, icon_rect)
             else:
-                draw_text("HINT", self.hint_btn, (0, 0, 0))
+                draw_text("HINT", self.hint_btn, (71, 45, 60))
                 
         if self.undo_btn.visible:
-            draw_text("UNDO", self.undo_btn, (0, 0, 0))
+            draw_text("UNDO", self.undo_btn, (71, 45, 60))
         if self.reset_btn.visible:
-            draw_text("RESET", self.reset_btn, (0, 0, 0))
+            draw_text("RESET", self.reset_btn, (71, 45, 60))
         
         # Dropdown Items
         if self.ai_dropdown_open:

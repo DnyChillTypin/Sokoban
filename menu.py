@@ -58,16 +58,15 @@ class SokobanMenu:
         curr_h = window_height
         self.manager.set_window_resolution((curr_w, curr_h))
         
-        btn_w, btn_h = 420, 95
+        btn_w, btn_h = 336, 112
         cx = curr_w // 2 - btn_w // 2
         
         if self.state == "MAIN":
-            # Căn giữa theo chiều dọc dựa trên curr_h
-            start_y = curr_h // 2 - 100
-            self.play_btn = self._create_btn(cx, start_y, btn_w, btn_h, "START GAME", "#ai_btn")
-            self.instr_btn = self._create_btn(cx, start_y + 110, btn_w, btn_h, "INSTRUCTION", "#ai_btn")
-            self.setting_btn = self._create_btn(cx, start_y + 220, btn_w, btn_h, "GAME OPTIONS", "#ai_btn")
-            self.quit_btn = self._create_btn(cx, start_y + 330, btn_w, btn_h, "EXIT GAME", "#algo_btn")
+            start_y = curr_h // 2 - 160
+            self.play_btn = self._create_btn(cx, start_y, btn_w, btn_h, "", "#menu_play")
+            self.instr_btn = self._create_btn(cx, start_y + 135, btn_w, btn_h, "", "#menu_instr")
+            self.setting_btn = self._create_btn(cx, start_y + 270, btn_w, btn_h, "", "#menu_settings")
+            self.quit_btn = self._create_btn(cx, start_y + 405, btn_w, btn_h, "", "#menu_quit")
 
         elif self.state == "INSTRUCTION":
             # Tính toán kích thước hộp văn bản linh hoạt

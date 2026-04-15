@@ -481,24 +481,92 @@ class SokobanSolver:
         
         yield ("DONE", self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe))
 
-    def solve_fast_hint(self, initial_state, weight=5.0, timeout=2.0):
+    def solve_fast_hint(self, initial_state, weight=5.0, timeout=5.0):
         """
-        Hyper-fast Weighted A* exclusively for the hint system.
-        Designed to return a result almost instantaneously by being greedy.
+        Two-phase hint solver designed for reliability over optimality.
+        
+        Phase 1 — Greedy BestFS (budget: 0.5s)
+          Pure heuristic search, ignores path cost entirely.
+          Blazing fast on easy/medium levels. May fail on complex ones.
+          
+        Phase 2 — Standard A* (budget: remaining time up to 'timeout')
+          Admissible search as fallback. Slower but far more reliable.
+          Reuses the same solver instance so precomputed data is shared.
         """
+        total_start = time.time()
+        
+        # ── Phase 1: Greedy BestFS ──────────────────────────────────
+        phase1_timeout = 0.5
+        result = self._hint_greedy_bestfs(initial_state, phase1_timeout)
+        if result['path']:
+            return result
+        
+        # ── Phase 2: Standard A* Fallback ───────────────────────────
+        elapsed = time.time() - total_start
+        remaining = timeout - elapsed
+        if remaining > 0.1:
+            result = self._hint_astar(initial_state, remaining)
+            if result['path']:
+                return result
+        
+        # Both phases exhausted — genuinely cannot solve within budget
+        return self._fail_dict(total_start, 0, 0, 0)
+
+    def _hint_greedy_bestfs(self, initial_state, timeout):
+        """Phase 1: Pure greedy best-first search — fastest possible hint."""
         start_time = time.time()
         count = 0; self.current_pruned = 0
         
-        # PQ entry: (f_score, tiebreaker, state, g_score)
-        priority_queue = [(weight * self.heuristic(initial_state), count, initial_state, 0)]
+        h0 = self.heuristic(initial_state)
+        priority_queue = [(h0, count, initial_state)]
+        came_from = {initial_state: None}
+        visited = set()
+        nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
+        
+        while priority_queue:
+            iterations += 1
+            if iterations % 3000 == 0:
+                pygame.event.pump()
+                if time.time() - start_time > timeout:
+                    return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+            max_fringe = max(max_fringe, len(priority_queue))
+            _, _, state = heapq.heappop(priority_queue)
+            
+            if state in visited:
+                continue
+            visited.add(state)
+            nodes_visited += 1
+            
+            if self.is_goal_state(state):
+                path, pushes = self._reconstruct_path(state, came_from)
+                return self._success_dict(path, start_time, nodes_visited, nodes_generated, max_fringe, pushes)
+                
+            for move, is_push, next_state in self.get_valid_moves(state):
+                if next_state not in visited:
+                    if next_state not in came_from:
+                        came_from[next_state] = (state, move, is_push)
+                        count += 1
+                        nodes_generated += 1
+                        priority = self.heuristic(next_state)
+                        heapq.heappush(priority_queue, (priority, count, next_state))
+                    
+        return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
+
+    def _hint_astar(self, initial_state, timeout):
+        """Phase 2: Standard admissible A* — reliable fallback."""
+        start_time = time.time()
+        count = 0; self.current_pruned = 0
+        
+        h0 = self.heuristic(initial_state)
+        priority_queue = [(h0, count, initial_state, 0)]
         came_from = {initial_state: None}
         cost_so_far = {initial_state: 0}
         nodes_visited = 0; nodes_generated = 1; max_fringe = 1; iterations = 0
         
         while priority_queue:
             iterations += 1
-            # Keep OS happy every 5000 iterations and check timeout
-            if iterations % 5000 == 0:
+            if iterations % 3000 == 0:
                 pygame.event.pump()
                 if time.time() - start_time > timeout:
                     return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)
@@ -506,6 +574,10 @@ class SokobanSolver:
             max_fringe = max(max_fringe, len(priority_queue))
             _, _, state, g = heapq.heappop(priority_queue)
             nodes_visited += 1
+            
+            # Skip stale entries
+            if g > cost_so_far.get(state, float('inf')):
+                continue
             
             if self.is_goal_state(state):
                 path, pushes = self._reconstruct_path(state, came_from)
@@ -518,8 +590,7 @@ class SokobanSolver:
                     came_from[next_state] = (state, move, is_push)
                     count += 1
                     nodes_generated += 1
-                    # Weighted A* priority: f = g + weight * h
-                    priority = new_cost + (weight * self.heuristic(next_state))
+                    priority = new_cost + self.heuristic(next_state)
                     heapq.heappush(priority_queue, (priority, count, next_state, new_cost))
                     
         return self._fail_dict(start_time, nodes_visited, nodes_generated, max_fringe)

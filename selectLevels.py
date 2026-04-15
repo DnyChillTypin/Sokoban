@@ -48,11 +48,33 @@ class LevelSelection:
 
         center_y = (window_height - btn_h) // 2
 
-        self.home_btn = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect((90, 60), (80, 80)),
-            text='',
+        # Home / Settings Tray
+        tray_w, tray_h = 280, 100
+        tray_x, tray_y = 10, window_height - tray_h - 10
+        self.tray_panel = pygame_gui.elements.UIPanel(
+            relative_rect=pygame.Rect(tray_x, tray_y, tray_w, tray_h),
+            starting_height=2,
             manager=self.manager,
-            object_id="#home_btn"
+            object_id="#tray_bg"
+        )
+        
+        # Tray Background Image
+        pygame_gui.elements.UIImage(
+            relative_rect=pygame.Rect(0, 0, tray_w, tray_h),
+            image_surface=pygame.image.load("assets/graphics/Buttons/InGameMenu/HomeSettingsTray5x.png").convert_alpha(),
+            manager=self.manager,
+            container=self.tray_panel
+        )
+        
+        self.home_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(40, 10, 80, 80),
+            text="", manager=self.manager, container=self.tray_panel,
+            object_id="#tray_home"
+        )
+        self.settings_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(160, 10, 80, 80),
+            text="", manager=self.manager, container=self.tray_panel,
+            object_id="#tray_settings"
         )
 
         self.left_btn = pygame_gui.elements.UIButton(
@@ -163,6 +185,8 @@ class LevelSelection:
                 self.shift_focus(1)
             elif event.ui_element == self.home_btn:
                 return "HOME", self.current_level
+            elif event.ui_element == self.settings_btn:
+                return "SETTINGS", self.current_level
         return None, None
 
     def draw(self):
