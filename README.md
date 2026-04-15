@@ -57,14 +57,14 @@ Before searching begins, a wall-aware reverse BFS floods the grid, generating a 
 
 Want to run the solvers yourself? We provide compiled binaries for immediate play, or you can build it directly from the Python source.
 
-### 🎮 Quick Start (Windows)
+### Quick Start (Windows)
 The easiest way to play the game without installing Python or dependencies.
 
 1. Navigate to the **`dist/`** folder in this repository.
 2. Download **`SokobanAI.exe`** (Note: Due to file sizes, this is hosted via Git LFS).
 3. Run the executable. No installation required!
 
-### 💻 Source Build Instructions
+### Source Build Instructions
 For developers who want to inspect the source code or run it on macOS/Linux.
 
 **Prerequisites:**
