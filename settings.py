@@ -1,9 +1,7 @@
-# --- Kích thước tiêu đề
 tile_size = 16
 scale = 5
 scaled_tile = tile_size * scale
 
-# --- Cửa sổ game
 window_width = 1600
 window_height = 900
 fps = 60
@@ -14,7 +12,7 @@ game_width = window_width - menu_width
 ALGORITHMS = ['BFS', 'DFS', 'BestFS', 'Dijkstra', 'A*']
 UI_THEME = 'theme.json'
 
-font_path = 'assets/PIXY.ttf'
+font_path = 'assets/BoldPixels.ttf'
 
 tile_mapping = {
     '0': 'ground',
@@ -26,7 +24,6 @@ tile_mapping = {
     '6': 'bomb'
 }
 
-# --- Hình ảnh
 textures = {
     # Environment
     'bg_image_path': 'assets/graphics/WallpaperScifi.png',

@@ -295,11 +295,11 @@ class Game:
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0, 0))
 
-        txt = self.font_large.render("Are you sure?", False, (255, 255, 255))
+        txt = self.font_large.render("ARE YOU SURE?", False, (255, 255, 255))
         rect = txt.get_rect(center=(window_width // 2, window_height // 2 - 100))
         self.screen.blit(txt, rect)
 
-        yes_txt = self.font_small.render("Yes", False, (255, 100, 100))
+        yes_txt = self.font_small.render("YES", False, (255, 100, 100))
         self.yes_rect = yes_txt.get_rect(center=(window_width // 2 - 150, window_height // 2 + 100))
         
         mouse_pos = pygame.mouse.get_pos()
@@ -307,7 +307,7 @@ class Game:
             pygame.draw.rect(self.screen, (50, 0, 0), self.yes_rect.inflate(40, 20), border_radius=10)
         self.screen.blit(yes_txt, self.yes_rect)
 
-        no_txt = self.font_small.render("No", False, (100, 255, 100))
+        no_txt = self.font_small.render("NO", False, (100, 255, 100))
         self.no_rect = no_txt.get_rect(center=(window_width // 2 + 150, window_height // 2 + 100))
         
         if self.no_rect.collidepoint(mouse_pos):
@@ -475,7 +475,7 @@ class Game:
             self.screen.blit(self.win_overlay, (0, 0))
             
             # Render Congrats Text
-            congrats_surf = self.font_large.render("!!! Congrats !!!", False, (255, 255, 255))
+            congrats_surf = self.font_large.render("!!! CONGRATS !!!", False, (255, 255, 255))
             self.screen.blit(congrats_surf, congrats_surf.get_rect(center=(window_width // 2, (window_height // 2) - 100)))
             
             # Helper to draw action box
@@ -499,9 +499,9 @@ class Game:
 
             # Draw boxes side by side
             box_spacing = 150
-            draw_shortcut_box(window_width // 2 - box_spacing, (window_height // 2) + 60, "R", "restart")
+            draw_shortcut_box(window_width // 2 - box_spacing, (window_height // 2) + 60, "R", "RESTART")
            
-            draw_shortcut_box(window_width // 2 + box_spacing, (window_height // 2) + 60, "SPACE", "continue")
+            draw_shortcut_box(window_width // 2 + box_spacing, (window_height // 2) + 60, "SPACE", "CONTINUE")
 
         pygame.display.update()
 

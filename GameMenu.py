@@ -24,13 +24,13 @@ class GameMenu:
             'BestFS': (255, 255, 0),   # Hot Magenta
             'Dijkstra': (255, 140, 0)  # Bright Orange
         }
-        self.radar_chart = RadarChart(center=(680, 450), radius=180, font_size=20, color_map=color_map)
+        self.radar_chart = RadarChart(center=(680, 370), radius=180, font_size=20, color_map=color_map)
         
         # Load assets using settings.py
         self.custom_font = pygame.font.Font(font_path, 24)
         self.coffee_icon = pygame.image.load(textures['coffee_icon']).convert_alpha()
         
-        self.current_move_text = "Moves: 0"
+        self.current_move_text = "MOVES: 0"
         
         # Screen dimming overlay
         self.dim_surf = pygame.Surface((window_width, window_height))
@@ -196,7 +196,7 @@ class GameMenu:
             for res_btn in self.result_btns.values(): res_btn.hide()
 
     def update_moves(self, count, level_num):
-        self.current_move_text = f"Moves: {count}"
+        self.current_move_text = f"MOVES: {count}"
 
     def reset_ai_menu(self):
         self.algo_results = {algo: None for algo in ALGORITHMS}
@@ -396,13 +396,7 @@ class GameMenu:
         draw_text(self.current_move_text, self.move_display)
         
         # AI Solver Button Text
-        draw_text("AI Solver", self.ai_toggle_btn, (0, 0, 0))
-
-        def draw_pixel_star(surf, cx, cy, color):
-            """Draws a small 5x5 pixel-art style star"""
-            offsets = [(0,0), (0,-1), (0,1), (-1,0), (1,0), (0,-2), (0,2), (-2,0), (2,0), (-1,-1), (1,-1), (-1,1), (1,1)]
-            for dx, dy in offsets:
-                surf.set_at((cx + dx, cy + dy), color)
+        draw_text("AI SOLVER", self.ai_toggle_btn, (0, 0, 0))
 
         # Hint Button / Coffee Icon
         if self.hint_btn.visible:
@@ -411,12 +405,12 @@ class GameMenu:
                 self.coffee_icon.set_alpha(255)
                 surface.blit(self.coffee_icon, icon_rect)
             else:
-                draw_text("Hint", self.hint_btn, (0, 0, 0))
+                draw_text("HINT", self.hint_btn, (0, 0, 0))
                 
         if self.undo_btn.visible:
-            draw_text("Undo", self.undo_btn, (0, 0, 0))
+            draw_text("UNDO", self.undo_btn, (0, 0, 0))
         if self.reset_btn.visible:
-            draw_text("Reset", self.reset_btn, (0, 0, 0))
+            draw_text("RESET", self.reset_btn, (0, 0, 0))
         
         # Dropdown Items
         if self.ai_dropdown_open:
@@ -424,14 +418,7 @@ class GameMenu:
                 custom_btn = self.algo_custom_btns[algo]
                 custom_btn.rect = btn.rect # Keep in sync
                 custom_btn.draw(surface)
-                
-                # Special Case: A* star icon
-                if algo.lower() == "a*" and not custom_btn.is_loading:
-                    star_x = btn.rect.centerx + 12
-                    star_y = btn.rect.y + (37 if btn.is_selected else 32) - 10
-                    if btn.held and btn.is_enabled: star_y += 5
-                    draw_pixel_star(surface, star_x, star_y, (255, 255, 255))
-                
+            
                 res_btn = self.result_btns[algo]
                 if res_btn.visible:
                     draw_text(str(self.algo_results[algo]), res_btn)
