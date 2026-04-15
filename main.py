@@ -132,7 +132,7 @@ class Game:
         
         # Reset tutorial hints on level load/restart
         self.tutorial_hints_visible = True
-        self.tutorial_push_hint_visible = True
+        self.tutorial_push_hint_dismissed = False
 
     def _reset_hint_state(self):
         self.dead_state_active = False
@@ -179,10 +179,10 @@ class Game:
                         self.particle_manager.burst(pixel_x, pixel_y, count=30)
                     
                 # Tutorial: Mark push hint as done if box moved off (2,2)
-                was_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in old_boxes)
-                is_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in self.level.boxes)
-                if was_box_at_2_2 and not is_box_at_2_2:
-                    self.tutorial_push_hint_visible = False
+                if self.current_level_num == "tutorial":
+                    is_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in self.level.boxes)
+                    if not is_box_at_2_2:
+                        self.tutorial_push_hint_dismissed = True
             else:
                 # Shake ONLY if player attempted to move but state stayed the same (hit a wall/blocked)
                 self.shake(0.2, 5.0)
@@ -414,24 +414,22 @@ class Game:
         BORDER_YELLOW = (249, 194, 43, 180)
         BG_COLOR = (20, 20, 25, 160)
         
-        # Ping-pong or repeated interpolation? "move across from (2,1) to (4,1) and disappear, appear again"
-        # Total cycle time 2.0 seconds
-        push_cycle = (curr_time / 2.0) % 1.0 
+        # Slow move across x-axis from (2,1) to (4,1)
+        # Period: 2.5 seconds for a slower, clearer movement
+        push_cycle = (curr_time / 2.5) % 1.0 
         
         # X animates from grid 2.0 to 4.0
         anim_x = 2.0 + (push_cycle * 2.0)
-        anim_y = 1.0
+        anim_y = 1.0 # Fixed at row 1
         
         # Convert to screen pixels
         ax = anim_x * scaled_tile + (scaled_tile // 2) + self.map_rect.x
         ay = anim_y * scaled_tile + (scaled_tile // 2) + self.map_rect.y
         
-        # Calculate fade
+        # Calculate fade in/out
         push_alpha = 255
-        # Fade in roughly over first 10% of cycle
         if push_cycle < 0.1:
             push_alpha = int(255 * (push_cycle / 0.1))
-        # Fade out roughly over last 10% of cycle
         elif push_cycle > 0.9:
             push_alpha = int(255 * (1.0 - (push_cycle - 0.9) / 0.1))
             
@@ -442,12 +440,12 @@ class Game:
         pygame.draw.rect(push_surf, BG_COLOR, (0, 0, box_size, box_size), border_radius=12)
         pygame.draw.rect(push_surf, BORDER_YELLOW, (0, 0, box_size, box_size), width=3, border_radius=12)
         
+        # Symbol is an arrow down "v", pointing to (2,2)
         arr_surf = self.font_small.render("v", False, YELLOW)
         arr_surf.set_alpha(push_alpha)
         p_rect = arr_surf.get_rect(center=(box_size // 2, box_size // 2))
         push_surf.blit(arr_surf, p_rect)
         
-        # Apply composite alpha to surface directly because we have semi-trans borders
         push_surf.set_alpha(push_alpha)
         self.screen.blit(push_surf, (bx, by))
 
@@ -667,8 +665,8 @@ class Game:
             if getattr(self, 'tutorial_hints_visible', False):
                 self._draw_tutorial_hints()
                 
-            # Second part of the tutorial: Push hint (disappears natively if the specific box is moved)
-            if getattr(self, 'tutorial_push_hint_visible', False):
+            # Second part of the tutorial: Push hint (disappears permanently once the box at 2,2 is moved)
+            if not getattr(self, 'tutorial_push_hint_dismissed', False):
                 has_box_at_2_2 = any(bx == 2 and by == 2 for bx, by in self.level.boxes)
                 if has_box_at_2_2:
                     self._draw_push_hint()
