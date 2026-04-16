@@ -4,7 +4,7 @@ scaled_tile = tile_size * scale
 
 window_width = 1600
 window_height = 900
-fps = 60
+fps = 120
 
 menu_width = int(window_width * 0.2)
 game_width = window_width - menu_width
