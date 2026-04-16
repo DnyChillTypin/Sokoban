@@ -13,9 +13,4 @@ tempCodeRunnerFile.py
 *.log
 
 .env
-
-# Build artifacts
-build/
-dist/
-*.exe
-*.spec
+
