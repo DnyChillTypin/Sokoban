@@ -32,7 +32,7 @@ This project reconstructs the classic Sokoban puzzle game from the ground up to 
 
 - **6-Algorithm Solver Suite**: Run A*, Breadth-First Search (BFS), Depth-First Search (DFS), Dijkstra, Best-First Search, and Weighted A* simultaneously.
 - **Live Radar Chart Analytics**: A dynamically animating polar coordinate chart compares solver performance metrics (Time, Nodes Visited, Pushes, Max Memory, etc.) in real-time as results arrive.
-- **Premium "Cyber-Glass" UI**: Built with Pygame_GUI, featuring glassmorphism elements, dynamic UI scaling, and responsive pixel-art layouts.
+- **Morden "Cyber-Glass" UI**: Built with Pygame_GUI, featuring glassmorphism elements, dynamic UI scaling, and responsive pixel-art layouts.
 - **Dual-Language Localization**: Full English and Vietnamese support that hot-swaps interfaces dynamically at render-time.
 - **Native Standalone Packaging**: Fully bundled via PyInstaller utilizing `sys._MEIPASS` and Git LFS for out-of-the-box Windows execution.
 
@@ -123,9 +123,9 @@ The game features dynamic input tracking and quality-of-life puzzle shortcuts.
 Created as an advanced data structures and AI testbed.
 
 **Development Team:**
-- [Nguyễn Thái Duy](https://github.com/DnyChillTypin)
-- Đinh Quang Hưng
-- Nguyễn Mạnh Tiến
+- [Nguyễn Thái Duy](https://github.com/DnyChillTypin) ⭐
+- [Đinh Quang Hưng](https://github.com/hwngdominate05)
+- [Nguyễn Mạnh Tiến](https://github.com/NguyenManhTien1505)
 
 **Original Concept:**
 - Sokoban was originally created by Hiroyuki Imabayashi in 1981.

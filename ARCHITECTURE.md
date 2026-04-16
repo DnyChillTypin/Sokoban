@@ -392,14 +392,18 @@ The benchmarking data reveals the dramatic impact of informed search and heurist
 ## 6. Application Deployment & Localization
 
 ### 6.1 PyInstaller Standalone Packaging
+
 To support distribution without requiring a local Python environment, the application is packaged into a native executable using PyInstaller.
+
 - **Dependency Handling**: The `build.spec` is customized to correctly package `numba`, `llvmlite`, `numpy`, and `pygame_gui`.
 - **Resource Pathing**: The application natively handles `sys._MEIPASS` directory shifting during the boot sequence. When the executable extracts itself to a temporary directory, `main.py` redirects its CWD, allowing Pygame to cleanly load assets without hardcoded paths.
 - **Save Persistence**: The `env.json` configuration config uses `sys.executable` logic to persist alongside the `.exe` file itself, preventing data loss when the temporary PyInstaller `_MEIPASS` folder is destroyed.
 - **Binary Distribution**: To circumvent GitHub's 100MB commit limit for the 130MB standalone distributions, the project utilizes **Git LFS** (Large File Storage).
 
 ### 6.2 Dual-Language Localization
+
 Sokoban AI natively supports English and Vietnamese text parsing.
+
 - **Dynamic Text Resolution**: UI bindings, settings toggles (e.g., Music, SFX), main menu navigation, and Radar Chart tooltips fetch localized strings dynamically at render-time using `translations.py`.
 - **Instant Synchronization**: Modifying the language setting triggers an immediate UI rebuild without requiring a reboot. The selection persists across sessions.
 
@@ -423,6 +427,3 @@ Sokoban AI natively supports English and Vietnamese text parsing.
 | `settings.py`     | ~65   | Global constants, UI asset textures mapping, core algorithm registry             |
 
 ---
-
-_Architecture Document — Sokoban AI Engine_
-_Authored for portfolio review by senior engineers and technical recruiters._

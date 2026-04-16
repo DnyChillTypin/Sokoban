@@ -23,6 +23,14 @@ from solver import SokobanSolver
 from particles import ParticleManager
 # --- PYINSTALLER PATHING FIX ---
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    import traceback
+    exe_dir = os.path.dirname(sys.executable)
+    log_file = os.path.join(exe_dir, 'SokobanAI_error.log')
+    try:
+        sys.stdout = open(log_file, 'a')
+        sys.stderr = sys.stdout
+    except Exception:
+        pass
     os.chdir(sys._MEIPASS)
 else:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
